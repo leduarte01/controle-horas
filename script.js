@@ -410,9 +410,15 @@ class ControleHoras {
             return;
         }
 
-        // Calcular duração em horas
-        const inicio = new Date(`${data} ${horaInicio}`);
-        const fim = new Date(`${data} ${horaFim}`);
+        // Calcular duração em horas usando Date no timezone local
+        const inicio = this.parseDateLocal(data);
+        const [hi, hmi] = horaInicio.split(':').map(h => parseInt(h, 10));
+        inicio.setHours(hi, hmi, 0, 0);
+
+        const fim = this.parseDateLocal(data);
+        const [hf, hfm] = horaFim.split(':').map(h => parseInt(h, 10));
+        fim.setHours(hf, hfm, 0, 0);
+
         const duracao = (fim - inicio) / (1000 * 60 * 60); // em horas
 
         const projeto = this.projetos.find(p => p.id === projetoId);
@@ -462,6 +468,7 @@ class ControleHoras {
     calcularTempo() {
         const horaInicio = document.getElementById('horaInicio').value;
         const horaFim = document.getElementById('horaFim').value;
+        const data = document.getElementById('dataLancamento').value || new Date().toISOString().split('T')[0];
         const tempoElement = document.getElementById('tempoCalculado');
         const textoElement = document.getElementById('textoTempo');
 
@@ -471,8 +478,14 @@ class ControleHoras {
                 textoElement.textContent = 'Hora de fim deve ser maior que hora de início.';
                 tempoElement.className = 'alert alert-danger';
             } else {
-                const inicio = new Date(`2000-01-01 ${horaInicio}`);
-                const fim = new Date(`2000-01-01 ${horaFim}`);
+                const inicio = this.parseDateLocal(data);
+                const [hi, hmi] = horaInicio.split(':').map(h => parseInt(h, 10));
+                inicio.setHours(hi, hmi, 0, 0);
+
+                const fim = this.parseDateLocal(data);
+                const [hf, hfm] = horaFim.split(':').map(h => parseInt(h, 10));
+                fim.setHours(hf, hfm, 0, 0);
+
                 const duracao = (fim - inicio) / (1000 * 60 * 60);
                 
                 tempoElement.style.display = 'block';
@@ -989,7 +1002,21 @@ class ControleHoras {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
 
+    // Cria um objeto Date no timezone local a partir de uma string YYYY-MM-DD
+    parseDateLocal(dateStr) {
+        if (!dateStr) return null;
+        const parts = dateStr.split('-');
+        if (parts.length !== 3) return new Date(dateStr);
+        const [y, m, d] = parts.map(p => parseInt(p, 10));
+        return new Date(y, m - 1, d);
+    }
+
     formatarData(data) {
+        if (!data) return '';
+        // Se for no formato YYYY-MM-DD, parse usando parseDateLocal para evitar offset de timezone
+        if (/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+            return this.parseDateLocal(data).toLocaleDateString('pt-BR');
+        }
         return new Date(data).toLocaleDateString('pt-BR');
     }
 
