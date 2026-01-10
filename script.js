@@ -641,8 +641,8 @@ class ControleHoras {
 
     // === RELATÓRIOS ===
     agruparLancamentosPorClienteProjeto(lancamentos) {
-        // Ordenar por data (mais recente primeiro)
-        lancamentos.sort((a, b) => new Date(b.data) - new Date(a.data));
+        // Ordenar por data (mais antiga → mais recente)
+        lancamentos.sort((a, b) => this.parseDateLocal(a.data) - this.parseDateLocal(b.data));
         
         const clientesMap = new Map();
         
@@ -685,7 +685,12 @@ class ControleHoras {
         
         // Converter Maps para Arrays e ordenar
         const resultado = Array.from(clientesMap.values()).map(clienteData => {
-            clienteData.projetos = Array.from(clienteData.projetos.values());
+            // Garantir que os lançamentos dentro de cada projeto estejam ordenados por data
+            clienteData.projetos = Array.from(clienteData.projetos.values()).map(proj => {
+                proj.lancamentos.sort((a, b) => this.parseDateLocal(a.data) - this.parseDateLocal(b.data));
+                return proj;
+            });
+
             // Ordenar projetos por valor total (maior primeiro)
             clienteData.projetos.sort((a, b) => b.valorTotal - a.valorTotal);
             return clienteData;
