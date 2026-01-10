@@ -873,6 +873,8 @@ class ControleHoras {
         resumoData.push(['Valor Total:', this.dadosRelatorio.valorTotal.toFixed(2)]);
         
         const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
+        // Centralizar células para melhor leitura
+        this.setSheetAlignmentCenter(wsResumo);
         XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
         
         // Planilha Detalhada (corrigida)
@@ -910,6 +912,7 @@ class ControleHoras {
         dadosDetalhados.push(['', '', '', '', '', 'TOTAL HORAS', totalHoras.toFixed(1)]);
 
         const wsDetalhado = XLSX.utils.aoa_to_sheet(dadosDetalhados);
+        this.setSheetAlignmentCenter(wsDetalhado);
         XLSX.utils.book_append_sheet(wb, wsDetalhado, 'Detalhado');
         
         // Planilha por Cliente (separada)
@@ -937,6 +940,7 @@ class ControleHoras {
             clienteSheet.push(['TOTAL:', '', '', '', '', clienteData.totalHoras.toFixed(1)]);
             
             const wsCliente = XLSX.utils.aoa_to_sheet(clienteSheet);
+            this.setSheetAlignmentCenter(wsCliente);
             const nomeAba = clienteData.nomeCliente.substring(0, 31); // Limite do Excel
             XLSX.utils.book_append_sheet(wb, wsCliente, nomeAba);
         });
@@ -1022,6 +1026,27 @@ class ControleHoras {
             return this.parseDateLocal(data).toLocaleDateString('pt-BR');
         }
         return new Date(data).toLocaleDateString('pt-BR');
+    }
+
+    // Define alinhamento centralizado (se suportado pelo leitor XLSX)
+    setSheetAlignmentCenter(ws) {
+        try {
+            if (!ws || !ws['!ref']) return;
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const cellAddress = { c: C, r: R };
+                    const cellRef = XLSX.utils.encode_cell(cellAddress);
+                    const cell = ws[cellRef];
+                    if (!cell) continue;
+                    cell.s = cell.s || {};
+                    cell.s.alignment = { vertical: 'center', horizontal: 'center', wrapText: true };
+                }
+            }
+        } catch (e) {
+            // Se a biblioteca/versão não suportar estilos, não quebramos a exportação
+            console.warn('Não foi possível aplicar estilos de célula (alinhamento).', e);
+        }
     }
 
     salvarDados() {
