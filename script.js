@@ -851,6 +851,30 @@ class ControleHoras {
         const wb = XLSX.utils.book_new();
         const dadosAgrupados = this.agruparLancamentosPorClienteProjeto(this.dadosRelatorio.lancamentos);
         
+        // Planilha Simples (solicitada): Data, Cliente, Projeto, Descrição, Horas
+        const dadosSimples = [];
+        dadosSimples.push(['Data', 'Cliente', 'Projeto', 'Descrição', 'Horas (h)']);
+
+        this.dadosRelatorio.lancamentos.forEach(lancamento => {
+            const projeto = this.projetos.find(p => p.id === lancamento.projetoId);
+            const cliente = projeto ? this.clientes.find(c => c.id === projeto.clienteId) : null;
+            dadosSimples.push([
+                this.formatarData(lancamento.data),
+                cliente ? cliente.nome : 'N/A',
+                projeto ? projeto.nome : 'N/A',
+                lancamento.descricao,
+                lancamento.duracao
+            ]);
+        });
+
+        // Linha de totais ao final
+        const totalHoras = this.dadosRelatorio.lancamentos.reduce((t, l) => t + l.duracao, 0);
+        dadosSimples.push([]);
+        dadosSimples.push(['TOTAIS', '', '', '', totalHoras.toFixed(1)]);
+
+        const wsSimples = XLSX.utils.aoa_to_sheet(dadosSimples);
+        XLSX.utils.book_append_sheet(wb, wsSimples, 'Relatório Simples');
+
         // Planilha Resumo
         const resumoData = [];
         resumoData.push(['RELATÓRIO DE HORAS TRABALHADAS']);
