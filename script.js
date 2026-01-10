@@ -913,6 +913,8 @@ class ControleHoras {
 
         const wsDetalhado = XLSX.utils.aoa_to_sheet(dadosDetalhados);
         this.setSheetAlignmentCenter(wsDetalhado);
+        // Formatar coluna de duração para [h]:mm
+        this.formatDurationColumn(wsDetalhado);
         XLSX.utils.book_append_sheet(wb, wsDetalhado, 'Detalhado');
         
         // Planilha por Cliente (separada)
@@ -941,6 +943,8 @@ class ControleHoras {
             
             const wsCliente = XLSX.utils.aoa_to_sheet(clienteSheet);
             this.setSheetAlignmentCenter(wsCliente);
+            // Formatar coluna de duração para [h]:mm na aba do cliente
+            this.formatDurationColumn(wsCliente);
             const nomeAba = clienteData.nomeCliente.substring(0, 31); // Limite do Excel
             XLSX.utils.book_append_sheet(wb, wsCliente, nomeAba);
         });
@@ -1046,6 +1050,42 @@ class ControleHoras {
         } catch (e) {
             // Se a biblioteca/versão não suportar estilos, não quebramos a exportação
             console.warn('Não foi possível aplicar estilos de célula (alinhamento).', e);
+        }
+    }
+
+    // Formata a coluna de duração (em horas decimais) para formato de tempo do Excel [h]:mm
+    formatDurationColumn(ws) {
+        try {
+            if (!ws || !ws['!ref']) return;
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            // localizar coluna cujo cabeçalho contenha 'dura' (case-insensitive)
+            let durCol = -1;
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const headerRef = XLSX.utils.encode_cell({c: C, r: range.s.r});
+                const headerCell = ws[headerRef];
+                const headerVal = headerCell && headerCell.v ? String(headerCell.v).trim().toLowerCase() : '';
+                if (/dura/.test(headerVal)) { durCol = C; break; }
+            }
+            if (durCol === -1) return;
+
+            // Converter valores para fração de dia e aplicar formato
+            for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+                const cellRef = XLSX.utils.encode_cell({c: durCol, r: R});
+                const cell = ws[cellRef];
+                if (!cell) continue;
+                // ignorar células que contenham texto não-numérico (ex: cabeçalhos internos)
+                const raw = cell.v;
+                const num = parseFloat(raw);
+                if (isFinite(num)) {
+                    // converter horas decimais para fração de dia
+                    const excelVal = num / 24;
+                    cell.v = excelVal;
+                    cell.t = 'n';
+                    cell.z = '[h]:mm';
+                }
+            }
+        } catch (e) {
+            console.warn('Não foi possível aplicar formatação de duração.', e);
         }
     }
 
