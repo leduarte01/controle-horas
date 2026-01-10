@@ -875,37 +875,40 @@ class ControleHoras {
         const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
         XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
         
-        // Planilha Detalhada
+        // Planilha Detalhada (corrigida)
+        // Colunas: Data, Cliente, Projeto, Descrição, Hora Início, Hora Fim, Duração (h)
         const dadosDetalhados = [];
-        dadosDetalhados.push(['Data', 'Cliente', 'Projeto', 'Descrição', 'Hora Início', 'Hora Fim', 'Duração (h)', 'Valor/Hora (R$)', 'Valor Total (R$)']);
-        
+        dadosDetalhados.push(['Data', 'Cliente', 'Projeto', 'Descrição', 'Hora Início', 'Hora Fim', 'Duração (h)']);
+
         dadosAgrupados.forEach(clienteData => {
-            // Linha separadora do cliente
-            dadosDetalhados.push([`=== ${clienteData.nomeCliente.toUpperCase()} ===`, '', '', '', '', '', clienteData.totalHoras.toFixed(1), '', clienteData.valorTotal.toFixed(2)]);
-            
+            // Linha separadora do cliente: cliente aparece na coluna Cliente
+            dadosDetalhados.push(['', `=== ${clienteData.nomeCliente.toUpperCase()} ===`, '', '', '', '', clienteData.totalHoras.toFixed(1)]);
+
             clienteData.projetos.forEach(projetoData => {
-                // Linha do projeto
-                dadosDetalhados.push([`--- ${projetoData.nomeProjeto} ---`, '', '', '', '', '', projetoData.totalHoras.toFixed(1), projetoData.valorHora.toFixed(2), projetoData.valorTotal.toFixed(2)]);
-                
-                // Lançamentos do projeto
+                // Linha do projeto: projeto aparece na coluna Projeto
+                dadosDetalhados.push(['', '', `--- ${projetoData.nomeProjeto} ---`, '', '', '', projetoData.totalHoras.toFixed(1)]);
+
+                // Lançamentos do projeto (cada linha com Data, Cliente, Projeto preenchidos)
                 projetoData.lancamentos.forEach(lancamento => {
                     dadosDetalhados.push([
                         this.formatarData(lancamento.data),
-                        '',
-                        '',
+                        clienteData.nomeCliente,
+                        projetoData.nomeProjeto,
                         lancamento.descricao,
                         lancamento.horaInicio,
                         lancamento.horaFim,
-                        lancamento.duracao,
-                        '',
-                        lancamento.valorTotal.toFixed(2)
+                        lancamento.duracao
                     ]);
                 });
-                
+
                 dadosDetalhados.push(['']); // Linha em branco
             });
         });
-        
+
+        // Linha de totas no final
+        const totalHoras = this.dadosRelatorio.lancamentos.reduce((t, l) => t + l.duracao, 0);
+        dadosDetalhados.push(['', '', '', '', '', 'TOTAL HORAS', totalHoras.toFixed(1)]);
+
         const wsDetalhado = XLSX.utils.aoa_to_sheet(dadosDetalhados);
         XLSX.utils.book_append_sheet(wb, wsDetalhado, 'Detalhado');
         
@@ -925,15 +928,13 @@ class ControleHoras {
                         lancamento.descricao,
                         lancamento.horaInicio,
                         lancamento.horaFim,
-                        lancamento.duracao,
-                        projetoData.valorHora.toFixed(2),
-                        lancamento.valorTotal.toFixed(2)
+                        lancamento.duracao
                     ]);
                 });
             });
             
             clienteSheet.push([]);
-            clienteSheet.push(['TOTAL:', '', '', '', '', clienteData.totalHoras.toFixed(1), '', clienteData.valorTotal.toFixed(2)]);
+            clienteSheet.push(['TOTAL:', '', '', '', '', clienteData.totalHoras.toFixed(1)]);
             
             const wsCliente = XLSX.utils.aoa_to_sheet(clienteSheet);
             const nomeAba = clienteData.nomeCliente.substring(0, 31); // Limite do Excel
