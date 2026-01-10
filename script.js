@@ -838,6 +838,9 @@ class ControleHoras {
         resumo.style.display = 'block';
 
         // Armazenar dados para exportação
+        // Garantir que os lançamentos do relatório estejam ordenados por data (asc)
+        lancamentos.sort((a, b) => this.parseDateLocal(a.data) - this.parseDateLocal(b.data));
+
         this.dadosRelatorio = {
             lancamentos,
             totalHoras,
@@ -921,6 +924,34 @@ class ControleHoras {
         // Formatar coluna de duração para [h]:mm
         this.formatDurationColumn(wsDetalhado);
         XLSX.utils.book_append_sheet(wb, wsDetalhado, 'Detalhado');
+
+        // Planilha Detalhada por Data (lista plana ordenada por data)
+        const dadosPorData = [];
+        dadosPorData.push(['Data', 'Cliente', 'Projeto', 'Descrição', 'Hora Início', 'Hora Fim', 'Duração (h)']);
+        // usar os lançamentos já ordenados em this.dadosRelatorio
+        const lancsOrdenados = (this.dadosRelatorio && this.dadosRelatorio.lancamentos) ? this.dadosRelatorio.lancamentos : [];
+        lancsOrdenados.forEach(lanc => {
+            const projeto = this.projetos.find(p => p.id === lanc.projetoId);
+            const cliente = projeto ? this.clientes.find(c => c.id === projeto.clienteId) : null;
+            dadosPorData.push([
+                this.formatarData(lanc.data),
+                cliente ? cliente.nome : 'N/A',
+                projeto ? projeto.nome : 'N/A',
+                lanc.descricao,
+                lanc.horaInicio,
+                lanc.horaFim,
+                lanc.duracao
+            ]);
+        });
+        // total
+        const totalHorasPorData = lancsOrdenados.reduce((t, l) => t + l.duracao, 0);
+        dadosPorData.push([]);
+        dadosPorData.push(['', '', '', '', 'TOTAL HORAS', '', totalHorasPorData.toFixed(1)]);
+
+        const wsPorData = XLSX.utils.aoa_to_sheet(dadosPorData);
+        this.setSheetAlignmentCenter(wsPorData);
+        this.formatDurationColumn(wsPorData);
+        XLSX.utils.book_append_sheet(wb, wsPorData, 'Detalhado - Por Data');
         
         // Planilha por Cliente (separada)
         dadosAgrupados.forEach(clienteData => {
