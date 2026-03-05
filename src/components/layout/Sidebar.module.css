@@ -1,0 +1,110 @@
+.sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0; top: 0;
+  z-index: 200;
+  transition: transform .3s cubic-bezier(.4,0,.2,1);
+  border-right: 1px solid rgba(255,255,255,.05);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 24px 18px 22px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.brandLogo {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--primary), #8b5cf6);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(99,102,241,.4);
+}
+.brandLogo svg { width: 22px; height: 22px; }
+.brandText { display: flex; flex-direction: column; line-height: 1.2; }
+.brandTitle { font-size: 1rem; font-weight: 700; color: #fff; letter-spacing: -.02em; }
+.brandSub   { font-size: .71rem; color: rgba(255,255,255,.4); font-weight: 400; margin-top: 1px; }
+
+.nav {
+  padding: 14px 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 14px;
+  border-radius: 9px;
+  color: rgba(255,255,255,.55);
+  font-size: .875rem;
+  font-weight: 500;
+  transition: var(--transition);
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+}
+.navItem:hover {
+  background: rgba(255,255,255,.07);
+  color: rgba(255,255,255,.9);
+}
+.navItem.active {
+  background: rgba(99,102,241,.18);
+  color: #c7d2fe;
+  font-weight: 600;
+}
+.navItem.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: var(--primary-light);
+  border-radius: 0 3px 3px 0;
+}
+.navIcon {
+  width: 17px; height: 17px;
+  flex-shrink: 0;
+  opacity: .7;
+  transition: opacity .15s ease;
+}
+.navItem:hover .navIcon,
+.navItem.active .navIcon { opacity: 1; }
+
+.footer {
+  padding: 14px 16px 22px;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.monthBadge {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: .76rem;
+  color: rgba(255,255,255,.5);
+  text-align: center;
+  letter-spacing: .01em;
+  font-weight: 500;
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    transform: translateX(-100%);
+    z-index: 200;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 8px 0 32px rgba(0,0,0,.35);
+  }
+}

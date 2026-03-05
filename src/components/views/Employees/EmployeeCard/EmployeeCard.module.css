@@ -1,0 +1,95 @@
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: var(--transition);
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: #cbd5e1;
+}
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.name { font-size: .95rem; font-weight: 700; letter-spacing: -.01em; }
+.rate { font-size: .78rem; color: var(--text-muted); margin-top: 1px; }
+
+.infoRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.schedBlock {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: .82rem;
+  flex: 1;
+  min-width: 100px;
+}
+.schTitle {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.schTime { font-weight: 600; color: var(--text); }
+
+.weekMiniSched {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+.weekMiniSched span {
+  font-size: .71rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.weekMiniSched span b {
+  color: var(--text);
+  font-weight: 600;
+  display: inline-block;
+  width: 28px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.stat {
+  text-align: center;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 7px 6px;
+  min-width: 0;
+}
+.statVal {
+  font-size: .88rem;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.statLbl { font-size: .65rem; color: var(--text-muted); margin-top: 2px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+
+.actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}

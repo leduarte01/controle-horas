@@ -1,0 +1,76 @@
+.schedTypeToggle {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.schedTypeOpt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: .875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: var(--transition);
+  user-select: none;
+  background: var(--bg);
+}
+.schedTypeOpt:hover { border-color: var(--primary); color: var(--primary); }
+.schedTypeOpt.active {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.weekScheduleTable {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.weekDayRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  flex-wrap: wrap;
+  transition: var(--transition);
+}
+.weekDayRow:focus-within {
+  border-color: var(--primary);
+  background: var(--surface);
+}
+.weekDayLabel {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--primary);
+  min-width: 60px;
+  letter-spacing: -.01em;
+}
+.weekDayFields {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.weekFieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 90px;
+}
+.weekFieldLabel {
+  font-size: .69rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
