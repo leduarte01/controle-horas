@@ -8,6 +8,12 @@ export function fmtHours(h: number): string {
   const mm = Math.round((abs - hh) * 60)
   return `${sign}${hh}h ${mm.toString().padStart(2, '0')}m`
 }
+
+export function fmtHoursDecimal(h: number): string {
+  if (h === 0) return '0,00'
+  return h.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'h'
+}
+
 export function fmtDateBR(iso: string): string {
   if (!iso) return '—'
   const [y, m, d] = iso.split('-')
