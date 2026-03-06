@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { AppProvider, useAppContext } from './context/AppContext'
 import { ModalProvider } from './context/ModalContext'
 import { ToastProvider } from './context/ToastContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
+import { Login } from './components/views/Login/Login'
 import { Sidebar } from './components/layout/Sidebar'
 import { MobileHeader } from './components/layout/MobileHeader'
 import { Modal } from './components/ui/Modal/Modal'
@@ -47,6 +49,17 @@ function AppShell() {
 }
 
 export function App() {
+  return (
+    <AuthProvider>
+      <AppAuthWrapper />
+    </AuthProvider>
+  )
+}
+
+function AppAuthWrapper() {
+  const { token } = useAuth()
+  if (!token) return <Login />
+
   return (
     <AppProvider><ModalProvider><ToastProvider><AppShell /></ToastProvider></ModalProvider></AppProvider>
   )

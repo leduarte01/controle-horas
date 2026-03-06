@@ -1,5 +1,6 @@
 import s from './Sidebar.module.css'
 import type { ViewName } from '../../types'
+import { useAuth } from '../../context/AuthContext'
 
 const PT_MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
@@ -17,6 +18,8 @@ interface Props { currentView: ViewName; onNavigate: (v: ViewName) => void; isOp
 
 export function Sidebar({ currentView, onNavigate, isOpen }: Props) {
   const now = new Date()
+  const { logout } = useAuth()
+
   return (
     <aside className={`${s.sidebar} ${isOpen ? s.open : ''}`}>
       <div className={s.brand}>
@@ -34,6 +37,17 @@ export function Sidebar({ currentView, onNavigate, isOpen }: Props) {
             {item.icon}<span>{item.label}</span>
           </a>
         ))}
+        
+        <div style={{ flex: 1 }} />
+        
+        <a className={s.navItem} onClick={logout} style={{ color: 'var(--danger)', marginTop: 'auto' }}>
+          <svg className={s.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Sair (Logoff)</span>
+        </a>
       </nav>
       <div className={s.footer}>
         <div className={s.monthBadge}>{PT_MONTHS[now.getMonth()]} {now.getFullYear()}</div>
