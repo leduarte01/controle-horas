@@ -1,0 +1,376 @@
+/* ============================================================
+   Controle de Horas — Lumina Design System
+   Dark Theme: #050505 bg, orange-500 accents, glass surfaces
+   ============================================================ */
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ---- Beam animations (background decoration) ---- */
+@keyframes beam-fall {
+    0%   { transform: translateY(-100%); opacity: 0; }
+    5%   { opacity: 0.5; }
+    50%  { opacity: 1; }
+    95%  { opacity: 0.5; }
+    100% { transform: translateY(120vh); opacity: 0; }
+}
+.beam-1 { animation: beam-fall 6s linear infinite; }
+.beam-2 { animation: beam-fall 8s linear infinite 2s; }
+.beam-3 { animation: beam-fall 7s linear infinite 4s; }
+
+/* ---- Page section animation ---- */
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.page-section { animation: fadeSlideIn 0.25s ease; }
+
+/* ---- Glass Cards ---- */
+.glass-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.glass-card-inner {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+}
+
+/* ---- Card Header ---- */
+.card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    display: flex;
+    align-items: center;
+}
+
+/* ---- Form Controls ---- */
+.form-label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #737373;
+    margin-bottom: 6px;
+}
+.form-control {
+    width: 100%;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+    box-sizing: border-box;
+}
+.form-control:focus {
+    border-color: #f97316;
+    background: rgba(255,255,255,0.08);
+    box-shadow: 0 0 0 3px rgba(249,115,22,0.1);
+}
+.form-control option { background: #141414; color: white; }
+textarea.form-control { resize: vertical; min-height: 80px; }
+
+/* ---- Buttons ---- */
+.btn-primary {
+    padding: 10px 20px;
+    background: linear-gradient(to bottom, #fb923c, #ea580c);
+    color: black;
+    font-weight: 700;
+    font-size: 0.875rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: opacity 0.2s, transform 0.15s;
+}
+.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.btn-ghost {
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.65);
+    font-weight: 500;
+    font-size: 0.875rem;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.2s, color 0.2s;
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.1); color: white; }
+
+.btn-glass {
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.8);
+    font-weight: 500;
+    font-size: 0.875rem;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 9999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s, color 0.2s;
+}
+.btn-glass:hover { background: rgba(255,255,255,0.1); color: white; }
+
+.btn-success {
+    padding: 8px 14px;
+    background: rgba(34,197,94,0.12);
+    color: #4ade80;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border: 1px solid rgba(34,197,94,0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.2s;
+}
+.btn-success:hover { background: rgba(34,197,94,0.22); }
+
+.btn-danger {
+    padding: 8px 14px;
+    background: rgba(239,68,68,0.12);
+    color: #f87171;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.2s;
+}
+.btn-danger:hover { background: rgba(239,68,68,0.22); }
+
+.btn-warning-sm {
+    padding: 6px 10px;
+    background: rgba(251,191,36,0.12);
+    color: #fbbf24;
+    font-size: 0.8125rem;
+    border: 1px solid rgba(251,191,36,0.2);
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.2s;
+}
+.btn-warning-sm:hover { background: rgba(251,191,36,0.22); }
+
+.btn-danger-sm {
+    padding: 6px 10px;
+    background: rgba(239,68,68,0.12);
+    color: #f87171;
+    font-size: 0.8125rem;
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.2s;
+}
+.btn-danger-sm:hover { background: rgba(239,68,68,0.22); }
+
+/* ---- Sidebar Navigation ---- */
+.nav-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #737373;
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+}
+.nav-item:hover { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.85); }
+.nav-item.active {
+    background: rgba(249,115,22,0.1);
+    color: #f97316;
+    border-color: rgba(249,115,22,0.15);
+}
+.nav-icon {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+/* ---- Mobile Bottom Nav ---- */
+.mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 4px;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    color: #525252;
+    cursor: pointer;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+}
+.mobile-nav-item.active { color: #f97316; }
+
+/* ---- Data Tables ---- */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+.data-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #525252;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    white-space: nowrap;
+}
+.data-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.75);
+    vertical-align: middle;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ---- Action cell ---- */
+.action-cell { display: flex; gap: 6px; align-items: center; }
+
+/* ---- Alerts ---- */
+.alert-info-glass {
+    padding: 12px 16px;
+    background: rgba(249,115,22,0.08);
+    border: 1px solid rgba(249,115,22,0.2);
+    border-radius: 8px;
+    color: rgba(249,115,22,0.9);
+    font-size: 0.875rem;
+}
+.alert-error-glass {
+    padding: 12px 16px;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 8px;
+    color: rgba(239,68,68,0.9);
+    font-size: 0.875rem;
+}
+
+/* ---- Toast Notifications ---- */
+.toast {
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    backdrop-filter: blur(12px);
+    max-width: 380px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: fadeSlideIn 0.2s ease;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.toast-success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.25); color: #4ade80; }
+.toast-error   { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.25);  color: #f87171; }
+.toast-info    { background: rgba(249,115,22,0.15); border: 1px solid rgba(249,115,22,0.25); color: #fb923c; }
+
+/* ---- Badges ---- */
+.badge {
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+}
+.badge-orange { background: rgba(249,115,22,0.18); color: #fb923c; }
+.badge-green  { background: rgba(34,197,94,0.15);  color: #4ade80; }
+.badge-blue   { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.badge-gray   { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); }
+
+/* ---- Relatório estruturado ---- */
+.cliente-grupo-header {
+    padding: 14px 18px;
+    background: rgba(249,115,22,0.07);
+    border-bottom: 1px solid rgba(249,115,22,0.12);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: #f97316;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.projeto-grupo-header {
+    padding: 10px 20px;
+    background: rgba(255,255,255,0.025);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.875rem;
+    color: rgba(255,255,255,0.65);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.projeto-grupo { border-bottom: 1px solid rgba(255,255,255,0.04); }
+.projeto-grupo:last-child { border-bottom: none; }
+
+/* ---- Stat cards ---- */
+.stat-card-accent {
+    background: linear-gradient(135deg, rgba(249,115,22,0.12), rgba(251,191,36,0.06));
+    border: 1px solid rgba(249,115,22,0.15);
+}
+
+/* ---- Summary cards inside report ---- */
+.summary-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 16px 20px;
+}
+
+/* ---- Spacing utilities ---- */
+.space-y-4 > * + * { margin-top: 16px; }
+.mt-4 { margin-top: 16px; }
+.ml-2 { margin-left: 8px; }
+.mb-0 { margin-bottom: 0 !important; }
