@@ -106,11 +106,13 @@ Object.assign(ControleHoras.prototype, {
         const header    = document.getElementById('cardHeaderClientes');
         const btnSubmit = document.getElementById('btnSubmitCliente');
         if (editando) {
-            header.innerHTML    = '<i class="bi bi-pencil mr-2" style="color:rgba(249,115,22,0.7)"></i>Editar Cliente';
-            btnSubmit.innerHTML = '<i class="bi bi-check-lg mr-1"></i>Atualizar';
+            header.innerHTML = '<i class="bi bi-pencil mr-2" style="color:rgba(249,115,22,0.7)"></i>Editar Cliente';
+            btnSubmit.querySelector('.btn-icon').className = 'bi bi-check-lg mr-1 btn-icon';
+            btnSubmit.querySelector('.btn-label').textContent = 'Atualizar';
         } else {
-            header.innerHTML    = '<i class="bi bi-person-plus mr-2" style="color:rgba(249,115,22,0.7)"></i>Cadastrar Cliente';
-            btnSubmit.innerHTML = '<i class="bi bi-check-lg mr-1"></i>Cadastrar';
+            header.innerHTML = '<i class="bi bi-person-plus mr-2" style="color:rgba(249,115,22,0.7)"></i>Cadastrar Cliente';
+            btnSubmit.querySelector('.btn-icon').className = 'bi bi-check-lg mr-1 btn-icon';
+            btnSubmit.querySelector('.btn-label').textContent = 'Cadastrar';
         }
     }
 

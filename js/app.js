@@ -49,13 +49,19 @@ class ControleHoras {
     }
 
     definirDataAtual() {
+        const fp  = window.fpInstances || {};
+        const set = (id, val) => fp[id] ? fp[id].setDate(val, true) : (document.getElementById(id).value = val);
+
         const hoje = new Date().toISOString().split('T')[0];
-        document.getElementById('dataLancamento').value = hoje;
+        set('dataLancamento', hoje);
 
-        const primeiroDia = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-        const ultimoDia   = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
-
-        document.getElementById('dataInicio').value = primeiroDia.toISOString().split('T')[0];
-        document.getElementById('dataFim').value    = ultimoDia.toISOString().split('T')[0];
+        const hoje2   = new Date();
+        // Period: 18th of previous month → 17th of current month
+        const inicio  = new Date(hoje2.getFullYear(), hoje2.getMonth() - 1, 18);
+        const fim     = new Date(hoje2.getFullYear(), hoje2.getMonth(),     17);
+        set('dataInicio',         inicio.toISOString().split('T')[0]);
+        set('dataFim',            fim.toISOString().split('T')[0]);
+        set('dataInicioDashboard', inicio.toISOString().split('T')[0]);
+        set('dataFimDashboard',    fim.toISOString().split('T')[0]);
     }
 }

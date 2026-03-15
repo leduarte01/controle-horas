@@ -11,35 +11,48 @@
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
 
-    <!-- Google Fonts: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Inter + Instrument Serif fonts (local assets) -->
+    <link rel="stylesheet" href="assets/css2_2832c0ff631d.css">
+    <link rel="stylesheet" href="assets/css2_2b2d87bc82d8.css">
+
+    <!-- Flatpickr datepicker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
     <!-- Custom styles -->
     <link rel="stylesheet" href="css/styles.css">
 
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        input[type="date"]::-webkit-calendar-picker-indicator,
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
         input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(0.4); cursor: pointer; }
     </style>
 </head>
-<body class="bg-[#050505] text-white min-h-screen overflow-x-hidden">
+<body class="bg-[#050505] text-white min-h-screen overflow-x-hidden antialiased">
+
+<!-- ═══ Background: rain canvas ═══ -->
+<canvas id="bgRain" class="fixed inset-0 pointer-events-none" style="z-index:1;opacity:0.55"></canvas>
+
+<!-- ═══ Background: image + overlays ═══ -->
+<div class="fixed z-0 top-0 right-0 bottom-0 left-0">
+    <img alt="Background" class="w-full h-full object-cover" style="opacity:0.75;" src="assets/2b5079f4-4ddd-433b-a936-fc8f7d_7da21e998877.webp"/>
+    <div class="absolute inset-0 bg-gradient-to-b from-[#050505]/60 via-[#050505]/20 to-[#050505]/80"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-orange-900/20 via-[#050505]/0 to-[#050505]/0"></div>
+</div>
 
 <!-- ═══ Background: vertical grid lines with falling beams ═══ -->
-<div class="fixed inset-0 z-0 pointer-events-none flex max-w-7xl mx-auto w-full opacity-50">
-    <div class="flex-1 border-l border-white/5 h-full"></div>
+<div class="fixed inset-0 z-0 pointer-events-none flex w-full max-w-7xl mx-auto border-r border-white/5 opacity-70">
+    <div class="flex-1 border-l border-white/5 h-full relative overflow-hidden"></div>
     <div class="flex-1 border-l border-white/5 h-full relative overflow-hidden">
-        <div class="beam-1 absolute top-0 -left-px w-px h-64 bg-gradient-to-b from-transparent via-orange-500/50 to-transparent"></div>
+        <div class="beam-1 absolute top-0 -left-px w-px h-64 bg-gradient-to-b from-transparent via-orange-500/80 to-transparent"></div>
+    </div>
+    <div class="flex-1 border-l border-white/5 h-full flex justify-center relative overflow-hidden">
+        <div class="beam-2 absolute top-0 -left-px w-px h-96 bg-gradient-to-b from-transparent via-orange-500 to-transparent"></div>
+        <div class="h-full border-r border-dashed border-orange-500/20 w-px"></div>
+        <div class="beam-3 absolute top-0 left-1/2 -translate-x-1/2 w-px h-64 bg-gradient-to-b from-transparent via-orange-500/90 to-transparent" style="animation-delay:1.5s"></div>
     </div>
     <div class="flex-1 border-l border-white/5 h-full relative overflow-hidden">
-        <div class="beam-2 absolute top-0 -left-px w-px h-96 bg-gradient-to-b from-transparent via-orange-500/70 to-transparent"></div>
+        <div class="beam-1 absolute top-0 -left-px w-px h-48 bg-gradient-to-b from-transparent via-orange-500/70 to-transparent" style="animation-delay:3s"></div>
     </div>
-    <div class="flex-1 border-l border-white/5 h-full relative overflow-hidden">
-        <div class="beam-3 absolute top-0 -left-px w-px h-48 bg-gradient-to-b from-transparent via-orange-500/50 to-transparent"></div>
-    </div>
-    <div class="flex-1 border-l border-r border-white/5 h-full"></div>
+    <div class="flex-1 border-l border-white/5 h-full relative overflow-hidden"></div>
 </div>
 
 <!-- ═══ Sticky Navbar ═══ -->
@@ -50,9 +63,14 @@
         </div>
         <span class="text-base font-semibold tracking-tight">Controle de Horas</span>
     </div>
-    <button onclick="exportarRelatorio()" class="btn-glass">
-        <i class="bi bi-download"></i>
-        <span class="hidden sm:inline text-sm">Exportar Relatório</span>
+    <button onclick="exportarRelatorio()" class="btn-glass group">
+        <div class="relative z-20 w-6 h-6 rounded-full bg-gradient-to-b from-orange-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/30 ring-1 ring-white/20 group-hover:scale-110 transition-transform duration-300">
+            <i class="bi bi-download text-white" style="font-size:10px"></i>
+        </div>
+        <span class="hidden sm:inline whitespace-nowrap relative z-10 font-medium tracking-tight text-sm text-white/95 group-hover:text-white transition-colors">Exportar Relatório</span>
+        <span class="hidden sm:inline-flex items-center justify-center z-10 bg-white/10 w-5 h-5 rounded-full relative group-hover:translate-x-0.5 transition-transform text-white/70 group-hover:text-white">
+            <i class="bi bi-arrow-right" style="font-size:10px"></i>
+        </span>
     </button>
 </nav>
 
@@ -139,7 +157,8 @@
                         </div>
                         <div class="flex items-end gap-2">
                             <button type="button" class="btn-primary w-full" onclick="controleHoras.aplicarFiltrosDashboard()">
-                                <i class="bi bi-search mr-1"></i>Filtrar
+                                <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                                <i class="bi bi-search mr-1"></i><span class="btn-label">Filtrar</span>
                             </button>
                         </div>
                     </div>
@@ -196,7 +215,8 @@
                                 </div>
                                 <div style="display:flex;gap:8px;">
                                     <button type="submit" class="btn-primary" style="flex:1;" id="btnSubmitCliente">
-                                        <i class="bi bi-check-lg mr-1"></i>Cadastrar
+                                        <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                                        <i class="bi bi-check-lg mr-1 btn-icon"></i><span class="btn-label">Cadastrar</span>
                                     </button>
                                     <button type="button" class="btn-ghost" onclick="limparFormCliente()">
                                         <i class="bi bi-x-lg mr-1"></i>Limpar
@@ -256,7 +276,8 @@
                                 </div>
                                 <div style="display:flex;gap:8px;">
                                     <button type="submit" class="btn-primary" style="flex:1;" id="btnSubmitProjeto">
-                                        <i class="bi bi-check-lg mr-1"></i>Cadastrar
+                                        <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                                        <i class="bi bi-check-lg mr-1 btn-icon"></i><span class="btn-label">Cadastrar</span>
                                     </button>
                                     <button type="button" class="btn-ghost" onclick="limparFormProjeto()">
                                         <i class="bi bi-x-lg mr-1"></i>Limpar
@@ -326,7 +347,8 @@
                             </div>
                             <div style="display:flex;gap:8px;">
                                 <button type="submit" class="btn-primary" style="flex:1;" id="btnSubmitLancamento">
-                                    <i class="bi bi-check-lg mr-1"></i>Lançar Horas
+                                    <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                                    <i class="bi bi-check-lg mr-1 btn-icon"></i><span class="btn-label">Lançar Horas</span>
                                 </button>
                                 <button type="button" class="btn-ghost" onclick="limparFormLancamento()">
                                     <i class="bi bi-x-lg mr-1"></i>Limpar
@@ -371,7 +393,8 @@
                         </div>
                         <div class="flex items-end">
                             <button type="button" class="btn-primary w-full" onclick="aplicarFiltros()">
-                                <i class="bi bi-search mr-1"></i>Filtrar
+                                <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                                <i class="bi bi-search mr-1"></i><span class="btn-label">Filtrar</span>
                             </button>
                         </div>
                     </div>
@@ -440,6 +463,10 @@
 <!-- Toast container -->
 <div id="toastContainer" class="fixed top-4 right-4 z-[9999]" style="display:flex;flex-direction:column;gap:8px;"></div>
 
+<!-- Flatpickr JS + PT locale -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+
 <!-- External libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -455,5 +482,289 @@
 <script src="js/relatorios.js"></script>
 <script src="js/main.js"></script>
 
+<!-- Custom Select init – portal-based, always renders above table/card stacking contexts -->
+<script>
+(function () {
+    'use strict';
+
+    // Single portal dropdown reused across all selects
+    var portal    = document.createElement('div');
+    portal.className = 'custom-select-dropdown';
+    document.body.appendChild(portal);
+
+    var activeSelect  = null;  // current native <select>
+    var activeTrigger = null;  // current trigger <button>
+
+    function makeChevron() {
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'custom-select-chevron');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+        var poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        poly.setAttribute('points', '6 9 12 15 18 9');
+        svg.appendChild(poly);
+        return svg;
+    }
+
+    function positionPortal(trigger) {
+        var rect = trigger.getBoundingClientRect();
+        var spaceBelow = window.innerHeight - rect.bottom;
+        var spaceAbove = rect.top;
+        var openUp = spaceBelow < 200 && spaceAbove > spaceBelow;
+
+        // position:fixed coords are viewport-relative — no scroll offset needed
+        portal.style.width  = rect.width + 'px';
+        portal.style.left   = rect.left + 'px';
+
+        if (openUp) {
+            portal.style.bottom = (window.innerHeight - rect.top) + 'px';
+            portal.style.top    = 'auto';
+        } else {
+            portal.style.top    = (rect.bottom + 6) + 'px';
+            portal.style.bottom = 'auto';
+        }
+    }
+
+    function rebuildPortal(nativeSelect) {
+        portal.innerHTML = '';
+        Array.from(nativeSelect.options).forEach(function (opt) {
+            var item = document.createElement('div');
+            item.className = 'custom-select-option';
+            if (opt.value === nativeSelect.value) item.classList.add('active');
+            item.textContent = opt.textContent;
+            item.addEventListener('mousedown', function (e) { e.preventDefault(); });
+            item.addEventListener('click', function () {
+                nativeSelect.value = opt.value;
+                nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                closePortal();
+            });
+            portal.appendChild(item);
+        });
+    }
+
+    function openPortal(nativeSelect, trigger) {
+        if (activeTrigger) activeTrigger.classList.remove('open');
+        activeSelect  = nativeSelect;
+        activeTrigger = trigger;
+        rebuildPortal(nativeSelect);
+        positionPortal(trigger);
+        portal.classList.add('open');
+        trigger.classList.add('open');
+    }
+
+    function closePortal() {
+        portal.classList.remove('open');
+        if (activeTrigger) activeTrigger.classList.remove('open');
+        activeSelect  = null;
+        activeTrigger = null;
+    }
+
+    document.addEventListener('click', function (e) {
+        if (!portal.contains(e.target)) closePortal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closePortal();
+    });
+    window.addEventListener('scroll', function () {
+        if (activeTrigger) positionPortal(activeTrigger);
+    }, true);
+    window.addEventListener('resize', function () {
+        if (activeTrigger) positionPortal(activeTrigger);
+    });
+
+    function buildCustomSelect(nativeSelect) {
+        if (nativeSelect.closest('.custom-select-wrapper')) return;
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'custom-select-wrapper';
+
+        var trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'form-control custom-select-trigger';
+
+        var valueSpan = document.createElement('span');
+        valueSpan.className = 'custom-select-value';
+        trigger.appendChild(valueSpan);
+        trigger.appendChild(makeChevron());
+
+        nativeSelect.parentNode.insertBefore(wrapper, nativeSelect);
+        wrapper.appendChild(nativeSelect);
+        wrapper.appendChild(trigger);
+
+        // Hide native select in-place so .value reads and change listeners keep working
+        nativeSelect.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;opacity:0;pointer-events:none;overflow:hidden;';
+
+        function updateTrigger() {
+            var opt = nativeSelect.options[nativeSelect.selectedIndex];
+            valueSpan.textContent = opt ? opt.textContent : '';
+            valueSpan.style.color = (opt && opt.value !== '') ? '' : 'rgba(255,255,255,0.35)';
+            // If this select is open, rebuild portal options to reflect new selection
+            if (activeSelect === nativeSelect && portal.classList.contains('open')) {
+                rebuildPortal(nativeSelect);
+            }
+        }
+
+        trigger.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (activeSelect === nativeSelect && portal.classList.contains('open')) {
+                closePortal();
+            } else {
+                openPortal(nativeSelect, trigger);
+            }
+        });
+
+        nativeSelect.addEventListener('change', updateTrigger);
+
+        new MutationObserver(function () {
+            updateTrigger();
+        }).observe(nativeSelect, { childList: true, subtree: true });
+
+        updateTrigger();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(function () {
+            document.querySelectorAll('select.form-control').forEach(buildCustomSelect);
+        }, 0);
+    });
+}());
+</script>
+
+<!-- Flatpickr init – runs before DOMContentLoaded handlers, fpInstances ready for app code -->
+<script>
+(function () {
+    var IDS = ['dataLancamento', 'dataInicio', 'dataFim', 'dataInicioDashboard', 'dataFimDashboard'];
+    window.fpInstances = {};
+    IDS.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        window.fpInstances[id] = flatpickr(el, {
+            locale:        flatpickr.l10ns.pt,
+            dateFormat:    'Y-m-d',
+            altInput:      true,
+            altFormat:     'd/m/Y',
+            disableMobile: true
+        });
+    });
+}());
+</script>
+
+<script>
+(function () {
+    var canvas = document.getElementById('bgRain');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+
+    // Direction: upper-left → lower-right (↘), matching design-system
+    var dx =  0.82;
+    var dy =  0.57;
+
+    var NUM = 55;
+    var meteors = [];
+
+    function W() { return canvas.width;  }
+    function H() { return canvas.height; }
+
+    function resize() {
+        canvas.width  = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function spawnMeteor() {
+        // Spawn along top edge and left edge (meteors travel ↘)
+        var edge = Math.random();
+        var x, y;
+        if (edge < 0.65) {
+            // top edge — extend left of screen so they start off-canvas
+            x = -W() * 0.2 + Math.random() * W() * 1.0;
+            y = -20 - Math.random() * H() * 0.3;
+        } else {
+            // left edge
+            x = -Math.random() * W() * 0.25;
+            y = Math.random() * H() * 0.6;
+        }
+        var maxLife = 110 + Math.random() * 130; // frames for full travel arc
+        return {
+            x:       x,
+            y:       y,
+            len:     130 + Math.random() * 320,
+            speed:   4   + Math.random() * 8,
+            maxAlpha: 0.25 + Math.random() * 0.45,
+            width:   0.6 + Math.random() * 1.4,
+            life:    0,
+            maxLife: maxLife
+        };
+    }
+
+    for (var i = 0; i < NUM; i++) {
+        var m = spawnMeteor();
+        // Scatter initial positions AND life phase so screen is populated immediately
+        var t = Math.random();
+        m.x   += dx * t * W() * 1.4;
+        m.y   += dy * t * H() * 1.4;
+        m.life = Math.floor(t * m.maxLife);
+        meteors.push(m);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, W(), H());
+
+        for (var i = 0; i < meteors.length; i++) {
+            var m = meteors[i];
+
+            // Temporal fade: sine curve — materialises, peaks, then fades out
+            var lifeRatio = m.life / m.maxLife;
+            var timeFade  = Math.sin(Math.PI * lifeRatio); // 0→1→0
+            var alpha     = m.maxAlpha * timeFade;
+
+            if (alpha > 0.008) {
+                // Head is at (m.x, m.y); tail trails behind
+                var tailX = m.x - dx * m.len;
+                var tailY = m.y - dy * m.len;
+
+                // Gradient from transparent tail → glowing warmcore → bright head
+                var grad = ctx.createLinearGradient(tailX, tailY, m.x, m.y);
+                grad.addColorStop(0,    'rgba(255,255,255,0)');
+                grad.addColorStop(0.55, 'rgba(255,200,140,' + (alpha * 0.35) + ')');
+                grad.addColorStop(0.82, 'rgba(255,255,255,' + alpha + ')');
+                grad.addColorStop(1,    'rgba(255,255,255,' + (alpha * 0.55) + ')');
+
+                ctx.beginPath();
+                ctx.moveTo(tailX, tailY);
+                ctx.lineTo(m.x, m.y);
+                ctx.strokeStyle = grad;
+                ctx.lineWidth   = m.width;
+                ctx.lineCap     = 'round';
+                ctx.stroke();
+
+                // Bright glow at the head
+                var glow = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.width * 4);
+                glow.addColorStop(0, 'rgba(255,210,160,' + (alpha * 0.65) + ')');
+                glow.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, m.width * 4, 0, Math.PI * 2);
+                ctx.fillStyle = glow;
+                ctx.fill();
+            }
+
+            // Advance position and age
+            m.x += dx * m.speed;
+            m.y += dy * m.speed;
+            m.life++;
+
+            // Reset when life ends or meteor exits right/bottom edge
+            if (m.life >= m.maxLife || m.x - m.len > W() + 50 || m.y - m.len > H() + 50) {
+                meteors[i] = spawnMeteor();
+            }
+        }
+        requestAnimationFrame(draw);
+    }
+    draw();
+}());
+</script>
 </body>
 </html>

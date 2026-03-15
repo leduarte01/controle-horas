@@ -97,8 +97,13 @@ Object.assign(ControleHoras.prototype, {
         navegarPara('lancamento');
 
         setTimeout(() => {
-            document.getElementById('projetoLancamento').value   = lanc.projetoId;
-            document.getElementById('dataLancamento').value      = lanc.data;
+            document.getElementById('projetoLancamento').value = lanc.projetoId;
+            document.getElementById('projetoLancamento').dispatchEvent(new Event('change', { bubbles: true }));
+            if (window.fpInstances && window.fpInstances['dataLancamento']) {
+                window.fpInstances['dataLancamento'].setDate(lanc.data, true);
+            } else {
+                document.getElementById('dataLancamento').value = lanc.data;
+            }
             document.getElementById('horaInicio').value          = lanc.horaInicio;
             document.getElementById('horaFim').value             = lanc.horaFim;
             document.getElementById('descricaoAtividade').value  = lanc.descricao;
@@ -131,11 +136,13 @@ Object.assign(ControleHoras.prototype, {
         const header    = document.getElementById('cardHeaderLancamento');
         const btnSubmit = document.getElementById('btnSubmitLancamento');
         if (editando) {
-            header.innerHTML    = '<i class="bi bi-pencil mr-2" style="color:rgba(249,115,22,0.7)"></i>Editar Lançamento';
-            btnSubmit.innerHTML = '<i class="bi bi-check-lg mr-1"></i>Atualizar';
+            header.innerHTML = '<i class="bi bi-pencil mr-2" style="color:rgba(249,115,22,0.7)"></i>Editar Lançamento';
+            btnSubmit.querySelector('.btn-icon').className = 'bi bi-check-lg mr-1 btn-icon';
+            btnSubmit.querySelector('.btn-label').textContent = 'Atualizar';
         } else {
-            header.innerHTML    = '<i class="bi bi-plus-circle mr-2" style="color:rgba(249,115,22,0.7)"></i>Lançar Horas';
-            btnSubmit.innerHTML = '<i class="bi bi-check-lg mr-1"></i>Lançar Horas';
+            header.innerHTML = '<i class="bi bi-plus-circle mr-2" style="color:rgba(249,115,22,0.7)"></i>Lançar Horas';
+            btnSubmit.querySelector('.btn-icon').className = 'bi bi-check-lg mr-1 btn-icon';
+            btnSubmit.querySelector('.btn-label').textContent = 'Lançar Horas';
         }
     }
 
