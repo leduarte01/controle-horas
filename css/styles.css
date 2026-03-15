@@ -629,7 +629,9 @@ span.flatpickr-weekday {
     border-radius: 8px !important;
     height: 34px !important;
     line-height: 33px !important;
-    max-width: 34px !important;
+    /* Keep flex-basis at 1/7 so exactly 7 days per row — do NOT override max-width alone */
+    flex-basis: 14.2857143% !important;
+    max-width: 14.2857143% !important;
 }
 .flatpickr-day:hover,
 .flatpickr-day:focus {
