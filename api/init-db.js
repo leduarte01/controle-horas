@@ -7,7 +7,31 @@ const pool = new Pool({
 
 async function initDB() {
   try {
-    console.log('Criando tabelas...');
+    console.log('Configurando Schema e migrando tabelas se necessário...');
+    
+    // Cria o schema isolado
+    await pool.query('CREATE SCHEMA IF NOT EXISTS horas;');
+    
+    // Migra as tabelas do schema public para o schema horas caso existam lá
+    await pool.query(`
+      DO $$ 
+      BEGIN 
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'clientes') THEN
+          ALTER TABLE public.clientes SET SCHEMA horas;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'projetos') THEN
+          ALTER TABLE public.projetos SET SCHEMA horas;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'lancamentos') THEN
+          ALTER TABLE public.lancamentos SET SCHEMA horas;
+        END IF;
+      END $$;
+    `);
+
+    // Define o schema padrão para a sessão atual
+    await pool.query('SET search_path TO horas;');
+
+    console.log('Criando tabelas isoladas...');
     await pool.query(`
       CREATE TABLE IF NOT EXISTS clientes (
         "id" VARCHAR(50) PRIMARY KEY,

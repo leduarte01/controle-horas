@@ -44,6 +44,11 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// Força que todas as conexões criadas pelo Pool entrem no Schema "horas" padrão
+pool.on('connect', client => {
+  client.query('SET search_path TO horas;');
+});
+
 // --- CLIENTES ---
 app.get('/api/clientes', async (req, res) => {
   try {
