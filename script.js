@@ -1,19 +1,21 @@
 // Classe principal do sistema de controle de horas
 class ControleHoras {
     constructor() {
-        this.clientes = JSON.parse(localStorage.getItem('clientes')) || [];
-        this.projetos = JSON.parse(localStorage.getItem('projetos')) || [];
-        this.lancamentos = JSON.parse(localStorage.getItem('lancamentos')) || [];
+        // Usa o caminho relativo para a API, assim funciona no localhost e no Easy Panel
+        this.apiBaseUrl = '/api';
+        this.clientes = [];
+        this.projetos = [];
+        this.lancamentos = [];
         this.editandoProjeto = null;
         this.editandoCliente = null;
         this.editandoLancamento = null;
         this.init();
     }
 
-    init() {
+    async init() {
         this.setupEventListeners();
-        this.carregarDados();
-        this.atualizarDashboard();
+        await this.migrarLocalStorage();
+        await this.carregarDadosAPI();
         this.definirDataAtual();
     }
 
@@ -88,6 +90,7 @@ class ControleHoras {
                     dataAtualizacao: new Date().toISOString()
                 };
                 
+                this.apiSync(`clientes/${this.clientes[index].id}`, 'PUT', this.clientes[index]);
                 this.mostrarToast('Cliente atualizado com sucesso!', 'success');
             }
         } else {
@@ -106,10 +109,10 @@ class ControleHoras {
             };
 
             this.clientes.push(cliente);
+            this.apiSync('clientes', 'POST', cliente);
             this.mostrarToast('Cliente cadastrado com sucesso!', 'success');
         }
 
-        this.salvarDados();
         this.carregarClientes();
         this.atualizarSelectsClientes();
         this.limparFormCliente();
@@ -209,7 +212,7 @@ class ControleHoras {
             // Remover cliente
             this.clientes = this.clientes.filter(cliente => cliente.id !== id);
             
-            this.salvarDados();
+            this.apiSync(`clientes/${id}`, 'DELETE');
             this.carregarDados();
             this.atualizarDashboard();
             this.mostrarToast('Cliente excluído com sucesso!', 'success');
@@ -254,6 +257,7 @@ class ControleHoras {
                     dataAtualizacao: new Date().toISOString()
                 };
                 
+                this.apiSync(`projetos/${this.projetos[index].id}`, 'PUT', this.projetos[index]);
                 this.mostrarToast('Projeto atualizado com sucesso!', 'success');
             }
         } else {
@@ -273,10 +277,10 @@ class ControleHoras {
             };
 
             this.projetos.push(projeto);
+            this.apiSync('projetos', 'POST', projeto);
             this.mostrarToast('Projeto cadastrado com sucesso!', 'success');
         }
 
-        this.salvarDados();
         this.carregarProjetos();
         this.atualizarSelectsProjetos();
         this.limparFormProjeto();
@@ -360,7 +364,7 @@ class ControleHoras {
             // Remover projeto
             this.projetos = this.projetos.filter(projeto => projeto.id !== id);
             
-            this.salvarDados();
+            this.apiSync(`projetos/${id}`, 'DELETE');
             this.carregarDados();
             this.atualizarDashboard();
             this.mostrarToast('Projeto excluído com sucesso!', 'success');
@@ -440,6 +444,7 @@ class ControleHoras {
                     dataAtualizacao: new Date().toISOString()
                 };
                 
+                this.apiSync(`lancamentos/${this.lancamentos[index].id}`, 'PUT', this.lancamentos[index]);
                 this.mostrarToast(`Lançamento atualizado com sucesso! Duração: ${duracao.toFixed(2)}h`, 'success');
             }
         } else {
@@ -457,10 +462,10 @@ class ControleHoras {
             };
 
             this.lancamentos.push(lancamento);
+            this.apiSync('lancamentos', 'POST', lancamento);
             this.mostrarToast(`Lançamento realizado com sucesso! Duração: ${duracao.toFixed(2)}h`, 'success');
         }
 
-        this.salvarDados();
         this.limparFormLancamento();
         this.atualizarDashboard();
     }
@@ -534,7 +539,7 @@ class ControleHoras {
     excluirLancamento(id) {
         if (confirm('Tem certeza que deseja excluir este lançamento?')) {
             this.lancamentos = this.lancamentos.filter(lancamento => lancamento.id !== id);
-            this.salvarDados();
+            this.apiSync(`lancamentos/${id}`, 'DELETE');
             this.atualizarDashboard();
             this.mostrarToast('Lançamento excluído com sucesso!', 'success');
         }
@@ -1125,10 +1130,72 @@ class ControleHoras {
         }
     }
 
-    salvarDados() {
-        localStorage.setItem('clientes', JSON.stringify(this.clientes));
-        localStorage.setItem('projetos', JSON.stringify(this.projetos));
-        localStorage.setItem('lancamentos', JSON.stringify(this.lancamentos));
+    async migrarLocalStorage() {
+        const clientesLocal = JSON.parse(localStorage.getItem('clientes')) || [];
+        const projetosLocal = JSON.parse(localStorage.getItem('projetos')) || [];
+        const lancamentosLocal = JSON.parse(localStorage.getItem('lancamentos')) || [];
+
+        if (clientesLocal.length === 0 && projetosLocal.length === 0 && lancamentosLocal.length === 0) {
+            return; // Nada para migrar
+        }
+
+        const jaMigrou = localStorage.getItem('migracaoConcluida');
+        if (jaMigrou) return;
+
+        this.mostrarToast('Migrando dados do navegador para o banco de dados...', 'info');
+
+        try {
+            const resposta = await fetch(`${this.apiBaseUrl}/migrar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientes: clientesLocal,
+                    projetos: projetosLocal,
+                    lancamentos: lancamentosLocal
+                })
+            });
+
+            if (!resposta.ok) throw new Error('Falha na migração da API');
+
+            localStorage.setItem('migracaoConcluida', 'true');
+            this.mostrarToast('Migração concluída com sucesso!', 'success');
+        } catch (error) {
+            console.error('Erro na migração:', error);
+            this.mostrarToast('Erro ao migrar dados locais para o banco.', 'error');
+        }
+    }
+
+    apiSync(endpoint, method, data = null) {
+        const options = {
+            method,
+            headers: { 'Content-Type': 'application/json' }
+        };
+        if (data) options.body = JSON.stringify(data);
+        
+        fetch(`${this.apiBaseUrl}/${endpoint}`, options).catch(e => {
+            console.error('Erro de sincronização:', e);
+            this.mostrarToast('Erro ao sincronizar com o banco de dados.', 'error');
+        });
+    }
+
+    async carregarDadosAPI() {
+        try {
+            const [resClientes, resProjetos, resLancamentos] = await Promise.all([
+                fetch(`${this.apiBaseUrl}/clientes`),
+                fetch(`${this.apiBaseUrl}/projetos`),
+                fetch(`${this.apiBaseUrl}/lancamentos`)
+            ]);
+            
+            if(resClientes.ok) this.clientes = await resClientes.json();
+            if(resProjetos.ok) this.projetos = await resProjetos.json();
+            if(resLancamentos.ok) this.lancamentos = await resLancamentos.json();
+            
+            this.carregarDados();
+            this.atualizarDashboard();
+        } catch(e) {
+            console.error('Erro ao conectar com API:', e);
+            this.mostrarToast('Erro ao carregar dados do banco. Usando dados vazios.', 'error');
+        }
     }
 
     carregarDados() {
