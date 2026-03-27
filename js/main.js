@@ -38,7 +38,7 @@ async function realizarLogin(e) {
     const pass = document.getElementById('loginPass').value;
     
     try {
-        const res = await fetch('/api/login', {
+        const res = await fetch(`${controleHoras.apiBaseUrl}/login`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({username: user, password: pass})
