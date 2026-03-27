@@ -3,6 +3,7 @@ class ControleHoras {
     constructor() {
         // Usa o caminho relativo para a API, assim funciona no localhost e no Easy Panel
         this.apiBaseUrl = '/api';
+        this.token = localStorage.getItem('token');
         this.clientes = [];
         this.projetos = [];
         this.lancamentos = [];
@@ -14,6 +15,15 @@ class ControleHoras {
 
     async init() {
         this.setupEventListeners();
+        if (this.token) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            await this.iniciarSistema();
+        } else {
+            document.getElementById('loginOverlay').style.display = 'flex';
+        }
+    }
+
+    async iniciarSistema() {
         await this.migrarLocalStorage();
         await this.carregarDadosAPI();
         this.definirDataAtual();
@@ -1155,6 +1165,11 @@ class ControleHoras {
                 })
             });
 
+            if (resposta.status === 401) {
+                this.logout();
+                return;
+            }
+
             if (!resposta.ok) throw new Error('Falha na migração da API');
 
             localStorage.setItem('migracaoConcluida', 'true');
@@ -1168,23 +1183,36 @@ class ControleHoras {
     apiSync(endpoint, method, data = null) {
         const options = {
             method,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.token}`
+            }
         };
         if (data) options.body = JSON.stringify(data);
         
-        fetch(`${this.apiBaseUrl}/${endpoint}`, options).catch(e => {
-            console.error('Erro de sincronização:', e);
-            this.mostrarToast('Erro ao sincronizar com o banco de dados.', 'error');
-        });
+        fetch(`${this.apiBaseUrl}/${endpoint}`, options)
+            .then(res => {
+                if (res.status === 401) this.logout();
+            })
+            .catch(e => {
+                console.error('Erro de sincronização:', e);
+                this.mostrarToast('Erro ao sincronizar com o banco de dados.', 'error');
+            });
     }
 
     async carregarDadosAPI() {
         try {
+            const headers = { 'Authorization': `Bearer ${this.token}` };
             const [resClientes, resProjetos, resLancamentos] = await Promise.all([
-                fetch(`${this.apiBaseUrl}/clientes`),
-                fetch(`${this.apiBaseUrl}/projetos`),
-                fetch(`${this.apiBaseUrl}/lancamentos`)
+                fetch(`${this.apiBaseUrl}/clientes`, { headers }),
+                fetch(`${this.apiBaseUrl}/projetos`, { headers }),
+                fetch(`${this.apiBaseUrl}/lancamentos`, { headers })
             ]);
+            
+            if (resClientes.status === 401 || resProjetos.status === 401 || resLancamentos.status === 401) {
+                this.logout();
+                return;
+            }
             
             if(resClientes.ok) this.clientes = await resClientes.json();
             if(resProjetos.ok) this.projetos = await resProjetos.json();
@@ -1316,10 +1344,55 @@ class ControleHoras {
             }
         }, 5000);
     }
+    logout() {
+        localStorage.removeItem('token');
+        window.location.reload();
+    }
 }
 
 // Funções globais para compatibilidade com onClick
 let controleHoras;
+
+async function realizarLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnAcessarLogin');
+    const oriHTML = btn.innerHTML;
+    btn.innerHTML = 'Acessando...';
+    btn.disabled = true;
+
+    const user = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: user, password: pass})
+        });
+        
+        if (!res.ok) {
+            controleHoras.mostrarToast('Usuário ou senha inválidos!', 'error');
+            btn.innerHTML = oriHTML;
+            btn.disabled = false;
+            return;
+        }
+        
+        const data = await res.json();
+        localStorage.setItem('token', data.token);
+        controleHoras.token = data.token;
+        document.getElementById('loginOverlay').style.display = 'none';
+        controleHoras.mostrarToast('Login realizado com sucesso!', 'success');
+        await controleHoras.iniciarSistema();
+    } catch(err) {
+        controleHoras.mostrarToast('Erro ao acessar o servidor.', 'error');
+        btn.innerHTML = oriHTML;
+        btn.disabled = false;
+    }
+}
+
+function realizarLogout() {
+    controleHoras.logout();
+}
 
 function limparFormCliente() {
     controleHoras.limparFormCliente();

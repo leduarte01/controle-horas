@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -55,6 +55,33 @@
     <div class="flex-1 border-l border-white/5 h-full relative overflow-hidden"></div>
 </div>
 
+<!-- ═══ Tela de Login ═══ -->
+<div id="loginOverlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#050505]/70 backdrop-blur-xl transition-opacity duration-500" style="display: none;">
+    <div class="glass-card w-full max-w-sm p-8 mx-5 flex flex-col items-center shadow-2xl shadow-orange-500/10 border border-white/10 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent pointer-events-none"></div>
+        <div class="relative flex w-12 h-12 rounded-full items-center justify-center bg-gradient-to-tr from-orange-500 to-amber-400 shadow-[0_0_20px_rgba(249,115,22,0.4)] mb-6">
+            <i class="bi bi-lock-fill text-xl text-black"></i>
+        </div>
+        <h2 class="relative text-2xl font-semibold tracking-tighter mb-1 text-white">Acesso Restrito</h2>
+        <p class="relative text-neutral-400 text-sm mb-6 text-center">Entre para acessar as análises e edições</p>
+        
+        <form id="formLogin" class="relative w-full" onsubmit="realizarLogin(event)">
+            <div class="mb-4">
+                <label class="form-label text-xs tracking-widest uppercase text-neutral-500 mb-1 block">Usuário</label>
+                <input type="text" id="loginUser" class="form-control w-full bg-white/5 border-white/10 text-white focus:border-orange-500" required autocomplete="username">
+            </div>
+            <div class="mb-8">
+                <label class="form-label text-xs tracking-widest uppercase text-neutral-500 mb-1 block">Senha</label>
+                <input type="password" id="loginPass" class="form-control w-full bg-white/5 border-white/10 text-white focus:border-orange-500" required autocomplete="current-password">
+            </div>
+            <button type="submit" id="btnAcessarLogin" class="btn-primary w-full justify-center shadow-lg shadow-orange-500/20 py-2.5">
+                <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                <span class="btn-label font-medium tracking-wide">Acessar Painel</span>
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- ═══ Sticky Navbar ═══ -->
 <nav class="sticky top-0 z-50 flex items-center justify-between px-5 md:px-10 py-4 bg-[#050505]/80 backdrop-blur-md border-b border-white/5">
     <div class="flex items-center gap-3">
@@ -63,15 +90,20 @@
         </div>
         <span class="text-base font-semibold tracking-tight">Controle de Horas</span>
     </div>
-    <button onclick="exportarRelatorio()" class="btn-glass group">
-        <div class="relative z-20 w-6 h-6 rounded-full bg-gradient-to-b from-orange-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/30 ring-1 ring-white/20 group-hover:scale-110 transition-transform duration-300">
-            <i class="bi bi-download text-white" style="font-size:10px"></i>
-        </div>
-        <span class="hidden sm:inline whitespace-nowrap relative z-10 font-medium tracking-tight text-sm text-white/95 group-hover:text-white transition-colors">Exportar Relatório</span>
-        <span class="hidden sm:inline-flex items-center justify-center z-10 bg-white/10 w-5 h-5 rounded-full relative group-hover:translate-x-0.5 transition-transform text-white/70 group-hover:text-white">
-            <i class="bi bi-arrow-right" style="font-size:10px"></i>
-        </span>
-    </button>
+    <div class="flex items-center gap-2">
+        <button onclick="realizarLogout()" class="btn-ghost flex items-center py-1.5 px-3 text-sm" title="Sair do Sistema">
+            <i class="bi bi-box-arrow-right text-orange-400 mr-2 border-r border-white/10 pr-2"></i>Sair
+        </button>
+        <button onclick="exportarRelatorio()" class="btn-glass group">
+            <div class="relative z-20 w-6 h-6 rounded-full bg-gradient-to-b from-orange-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/30 ring-1 ring-white/20 group-hover:scale-110 transition-transform duration-300">
+                <i class="bi bi-download text-white" style="font-size:10px"></i>
+            </div>
+            <span class="hidden sm:inline whitespace-nowrap relative z-10 font-medium tracking-tight text-sm text-white/95 group-hover:text-white transition-colors">Exportar Relatório</span>
+            <span class="hidden sm:inline-flex items-center justify-center z-10 bg-white/10 w-5 h-5 rounded-full relative group-hover:translate-x-0.5 transition-transform text-white/70 group-hover:text-white">
+                <i class="bi bi-arrow-right" style="font-size:10px"></i>
+            </span>
+        </button>
+    </div>
 </nav>
 
 <!-- ═══ App layout: Sidebar + Main ═══ -->

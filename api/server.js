@@ -7,18 +7,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- AUTENTICAÇÃO BÁSICA GLOBAL ---
-// Protege com cadeado tanto a API quanto as páginas de quem acessar o site
-const basicAuth = require('express-basic-auth');
+// --- AUTENTICAÇÃO COM LOGIN CUSTOMIZADO ---
+// Protege a API e permite usar uma interface linda do frontend
+const crypto = require('crypto');
+// Gera um token seguro que expira/reseta se o app reiniciar (ou usa um fixo)
+const SECRET_TOKEN = process.env.SECRET_TOKEN || crypto.randomBytes(32).toString('hex');
 
-const user = process.env.ADMIN_USER || 'admin';
-const pass = process.env.ADMIN_PASS || 'admin';
+app.post('/api/login', (req, res) => {
+    const user = process.env.ADMIN_USER || 'admin';
+    const pass = process.env.ADMIN_PASS || 'admin';
 
-app.use(basicAuth({
-    users: { [user]: pass },
-    challenge: true,
-    unauthorizedResponse: 'Acesso Restrito ao Sistema'
-}));
+    if (req.body.username === user && req.body.password === pass) {
+        res.json({ token: SECRET_TOKEN });
+    } else {
+        res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+});
+
+app.use('/api', (req, res, next) => {
+    // Ignorar a rota de login
+    if (req.path === '/login') return next();
+    
+    // Validar rotas da API
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader === `Bearer ${SECRET_TOKEN}`) {
+        return next();
+    }
+    return res.status(401).json({ error: 'Não autorizado' });
+});
 
 // Servir os arquivos estáticos do front-end (index.html, script.js, etc.)
 const path = require('path');
