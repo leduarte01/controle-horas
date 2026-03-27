@@ -4,8 +4,8 @@
  */
 class ControleHoras {
     constructor() {
-        // Conecta diretamente na nuvem para permitir abrir o arquivo local e puxar o localStorage para o banco
-        this.apiBaseUrl = 'https://automacoes-apontamentodehoras.denn5c.easypanel.host/api';
+        // Usa rota relativa para o sistema oficial rodando no EasyPanel
+        this.apiBaseUrl = '/api';
         this.token = localStorage.getItem('token');
         this.clientes    = [];
         this.projetos    = [];
