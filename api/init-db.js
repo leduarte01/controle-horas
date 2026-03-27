@@ -31,6 +31,16 @@ async function initDB() {
     // Define o schema padrão para a sessão atual
     await pool.query('SET search_path TO horas;');
 
+    console.log('Criando tabela de Controle de Usuários (SaaS Isolado)...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        "id" SERIAL PRIMARY KEY,
+        "username" VARCHAR(50) UNIQUE NOT NULL,
+        "passwordHash" VARCHAR(255) NOT NULL,
+        "dataCadastro" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     console.log('Criando tabelas isoladas...');
     await pool.query(`
       CREATE TABLE IF NOT EXISTS clientes (
@@ -69,8 +79,38 @@ async function initDB() {
         "dataAtualizacao" VARCHAR(50)
       );
     `);
+
+    // Alimenta as tabelas antigas/novas com a coluna mult-user
+    await pool.query(`
+      ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
+      ALTER TABLE projetos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
+      ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
+    `);
+
+    // Migração de Admin: Cria a conta superadmin e amarra aos dados velhos
+    const crypto = require('crypto');
+    const adminUser = process.env.ADMIN_USER || 'admin';
+    const adminPass = process.env.ADMIN_PASS || 'admin';
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(adminPass, salt, 1000, 64, 'sha512').toString('hex');
+    const dbHash = salt + ':' + hash;
     
-    console.log('Tabelas criadas com sucesso!');
+    await pool.query(`
+      INSERT INTO usuarios ("username", "passwordHash") 
+      VALUES ($1, $2)
+      ON CONFLICT ("username") DO NOTHING;
+    `, [adminUser, dbHash]);
+
+    // Resgata o ID desse super usuário logado no server
+    const { rows } = await pool.query('SELECT id FROM usuarios WHERE username = $1', [adminUser]);
+    const superAdminId = rows[0].id;
+
+    console.log('Amarrando dados órfãos ao dono original do sistema...');
+    await pool.query('UPDATE clientes SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [superAdminId]);
+    await pool.query('UPDATE projetos SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [superAdminId]);
+    await pool.query('UPDATE lancamentos SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [superAdminId]);
+
+    console.log('Tabelas, Schemas e Arquitetura MultiUsuário processadas com sucesso!');
   } catch (err) {
     console.error('Erro ao criar tabelas:', err);
   } finally {

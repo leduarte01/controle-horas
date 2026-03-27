@@ -67,6 +67,53 @@ async function realizarLogin(e) {
     }
 }
 
+async function realizarRegistro(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnCriarConta');
+    if (!btn) return;
+    const oriHTML = btn.innerHTML;
+    btn.innerHTML = 'Criando Conta...';
+    btn.disabled = true;
+
+    const user = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    
+    if(!user || !pass) {
+        if (controleHoras && controleHoras.mostrarToast) controleHoras.mostrarToast('Digite um usuário e senha para cadastrar!', 'error');
+        btn.innerHTML = oriHTML;
+        btn.disabled = false;
+        return;
+    }
+
+    try {
+        const res = await fetch(`${controleHoras.apiBaseUrl}/register`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: user, password: pass})
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+            if (controleHoras && controleHoras.mostrarToast) controleHoras.mostrarToast(data.error || 'Erro ao criar conta!', 'error');
+            btn.innerHTML = oriHTML;
+            btn.disabled = false;
+            return;
+        }
+        
+        localStorage.setItem('token', data.token);
+        controleHoras.token = data.token;
+        document.getElementById('loginOverlay').style.display = 'none';
+        
+        if (controleHoras.mostrarToast) controleHoras.mostrarToast(`Bem-vindo, ${data.username}! Conta ativa.`, 'success');
+        await controleHoras.iniciarSistema();
+    } catch(err) {
+        if (controleHoras && controleHoras.mostrarToast) controleHoras.mostrarToast('Erro ao contatar o servidor.', 'error');
+        btn.innerHTML = oriHTML;
+        btn.disabled = false;
+    }
+}
+
 function realizarLogout() {
     controleHoras.logout();
 }
