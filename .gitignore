@@ -3,8 +3,13 @@
 *.xlsx
 ~$*.xlsx
 
+# Environment variables
+.env
+.env.local
+
 # Node modules (if you add any)
 node_modules/
+api/node_modules/
 
 # IDE files
 .vscode/
