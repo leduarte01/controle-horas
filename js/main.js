@@ -26,6 +26,51 @@ function navegarPara(secao) {
 // ── Global compatibility wrappers (called from inline onclick in HTML) ──
 let controleHoras;
 
+async function realizarLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnAcessarLogin');
+    if (!btn) return;
+    const oriHTML = btn.innerHTML;
+    btn.innerHTML = 'Acessando...';
+    btn.disabled = true;
+
+    const user = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: user, password: pass})
+        });
+        
+        if (!res.ok) {
+            if (controleHoras && controleHoras.mostrarToast) controleHoras.mostrarToast('Usuário ou senha inválidos!', 'error');
+            else alert('Usuário ou senha inválidos!');
+            btn.innerHTML = oriHTML;
+            btn.disabled = false;
+            return;
+        }
+        
+        const data = await res.json();
+        localStorage.setItem('token', data.token);
+        controleHoras.token = data.token;
+        document.getElementById('loginOverlay').style.display = 'none';
+        
+        if (controleHoras.mostrarToast) controleHoras.mostrarToast('Login realizado com sucesso!', 'success');
+        await controleHoras.iniciarSistema();
+    } catch(err) {
+        if (controleHoras && controleHoras.mostrarToast) controleHoras.mostrarToast('Erro ao acessar o servidor.', 'error');
+        else alert('Erro ao acessar o servidor!');
+        btn.innerHTML = oriHTML;
+        btn.disabled = false;
+    }
+}
+
+function realizarLogout() {
+    controleHoras.logout();
+}
+
 function limparFormCliente()  { controleHoras.limparFormCliente(); }
 function limparFormProjeto()  { controleHoras.limparFormProjeto(); }
 function limparFormLancamento() { controleHoras.limparFormLancamento(); }

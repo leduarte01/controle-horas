@@ -4,9 +4,11 @@
  */
 class ControleHoras {
     constructor() {
-        this.clientes    = JSON.parse(localStorage.getItem('clientes'))    || [];
-        this.projetos    = JSON.parse(localStorage.getItem('projetos'))    || [];
-        this.lancamentos = JSON.parse(localStorage.getItem('lancamentos')) || [];
+        this.apiBaseUrl = '/api';
+        this.token = localStorage.getItem('token');
+        this.clientes    = [];
+        this.projetos    = [];
+        this.lancamentos = [];
 
         this.editandoCliente    = null;
         this.editandoProjeto    = null;
@@ -16,8 +18,20 @@ class ControleHoras {
         this.init();
     }
 
-    init() {
+    async init() {
         this.setupEventListeners();
+        if (this.token) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            await this.iniciarSistema();
+        } else {
+            document.getElementById('loginOverlay').style.display = 'flex';
+        }
+    }
+
+    async iniciarSistema() {
+        if(this.carregarDadosAPI) {
+            await this.carregarDadosAPI();
+        }
         this.carregarDados();
         this.atualizarDashboard();
         this.definirDataAtual();
