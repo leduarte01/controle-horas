@@ -71,9 +71,12 @@ class ControleHoras {
         set('dataLancamento', hoje);
 
         const hoje2   = new Date();
-        // Period: 18th of previous month → 17th of current month
-        const inicio  = new Date(hoje2.getFullYear(), hoje2.getMonth() - 1, 18);
-        const fim     = new Date(hoje2.getFullYear(), hoje2.getMonth(),     17);
+        // Periodo vigente: Dia 18 ao dia 17. Se já passou do dia 17, pula para o próximo ciclo de faturamento.
+        const offset  = hoje2.getDate() > 17 ? 1 : 0;
+        
+        const inicio  = new Date(hoje2.getFullYear(), hoje2.getMonth() - 1 + offset, 18);
+        const fim     = new Date(hoje2.getFullYear(), hoje2.getMonth() + offset,     17);
+        
         set('dataInicio',         inicio.toISOString().split('T')[0]);
         set('dataFim',            fim.toISOString().split('T')[0]);
         set('dataInicioDashboard', inicio.toISOString().split('T')[0]);
