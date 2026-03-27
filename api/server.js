@@ -7,6 +7,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// --- AUTENTICAÇÃO BÁSICA GLOBAL ---
+// Protege com cadeado tanto a API quanto as páginas de quem acessar o site
+const basicAuth = require('express-basic-auth');
+
+const user = process.env.ADMIN_USER || 'admin';
+const pass = process.env.ADMIN_PASS || 'admin';
+
+app.use(basicAuth({
+    users: { [user]: pass },
+    challenge: true,
+    unauthorizedResponse: 'Acesso Restrito ao Sistema'
+}));
+
 // Servir os arquivos estáticos do front-end (index.html, script.js, etc.)
 const path = require('path');
 app.use(express.static(path.join(__dirname, '../')));
