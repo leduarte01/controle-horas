@@ -175,6 +175,16 @@ Object.assign(ControleHoras.prototype, {
         const form  = document.getElementById('formTarefa');
         form.reset();
 
+        // Helper to set date via Flatpickr or native input
+        const fp = window.fpInstances || {};
+        const setDate = (id, val) => {
+            if (fp[id]) {
+                fp[id].setDate(val || '', true);
+            } else {
+                document.getElementById(id).value = val || '';
+            }
+        };
+
         if (tarefaId) {
             const t = this.kanbanTarefas.find(x => x.id === tarefaId);
             if (!t) return;
@@ -182,14 +192,17 @@ Object.assign(ControleHoras.prototype, {
             document.getElementById('tarefaTitulo').value = t.titulo;
             document.getElementById('tarefaDescricao').value = t.descricao || '';
             document.getElementById('tarefaColuna').value = t.coluna;
-            document.getElementById('tarefaDataInicio').value = t.dataInicio || '';
-            document.getElementById('tarefaDataPrevisao').value = t.dataPrevisao || '';
-            document.getElementById('tarefaDataEntrega').value = t.dataEntrega || '';
+            setDate('tarefaDataInicio', t.dataInicio);
+            setDate('tarefaDataPrevisao', t.dataPrevisao);
+            setDate('tarefaDataEntrega', t.dataEntrega);
             document.getElementById('modalTarefaTitulo').textContent = 'Editar Tarefa';
             document.getElementById('btnExcluirTarefa').style.display = 'inline-flex';
         } else {
             document.getElementById('tarefaId').value = '';
             document.getElementById('tarefaColuna').value = colunaDefault || 'Backlog';
+            setDate('tarefaDataInicio', '');
+            setDate('tarefaDataPrevisao', '');
+            setDate('tarefaDataEntrega', '');
             document.getElementById('modalTarefaTitulo').textContent = 'Nova Tarefa';
             document.getElementById('btnExcluirTarefa').style.display = 'none';
         }
