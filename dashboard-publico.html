@@ -832,6 +832,7 @@
                         <thead>
                             <tr>
                                 <th style="width:120px;">Data</th>
+                                <th style="width:150px;">Atividade</th>
                                 <th>Descrição</th>
                                 <th style="width:100px;text-align:right;">Horas</th>
                             </tr>
@@ -840,12 +841,13 @@
                             ${lancs.map(l => `
                                 <tr>
                                     <td class="col-data">${formatDate(l.data)}</td>
+                                    <td style="font-size:0.875rem;font-weight:500;">${escapeHtml(l.atividade) || '<span style="color:rgba(255,255,255,0.2)">—</span>'}</td>
                                     <td class="col-desc">${escapeHtml(l.descricao) || '<span style="color:rgba(255,255,255,0.2)">—</span>'}</td>
                                     <td class="col-horas">${formatHours(l.horas)}</td>
                                 </tr>
                             `).join('')}
                             <tr class="pub-total-row">
-                                <td class="total-label" colspan="2">Total do Projeto</td>
+                                <td class="total-label" colspan="3">Total do Projeto</td>
                                 <td class="total-value">${formatHours(p.totalHoras)}</td>
                             </tr>
                         </tbody>

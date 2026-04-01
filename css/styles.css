@@ -382,6 +382,21 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 .btn-danger-sm:hover { background: rgba(239,68,68,0.22); }
 
+.btn-info-sm {
+    padding: 6px 10px;
+    background: rgba(56,189,248,0.12);
+    color: #38bdf8;
+    font-size: 0.8125rem;
+    border: 1px solid rgba(56,189,248,0.2);
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.2s;
+}
+.btn-info-sm:hover { background: rgba(56,189,248,0.22); }
+
 /* ---- Sidebar Navigation ---- */
 .nav-item {
     width: 100%;

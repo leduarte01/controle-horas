@@ -43,6 +43,7 @@ Object.assign(ControleHoras.prototype, {
                         <th>Data</th>
                         <th>Projeto</th>
                         <th>Cliente</th>
+                        <th>Atividade</th>
                         <th>Descrição</th>
                         <th>Duração</th>
                         <th>Valor</th>
@@ -58,6 +59,7 @@ Object.assign(ControleHoras.prototype, {
                                 <td style="white-space:nowrap;font-size:0.8125rem;">${this.formatarData(l.data)}</td>
                                 <td style="font-weight:500;">${projeto ? projeto.nome : '—'}</td>
                                 <td style="font-size:0.8125rem;color:rgba(255,255,255,0.55);">${cliente ? cliente.nome : '—'}</td>
+                                <td style="font-size:0.8125rem;font-weight:500;">${l.atividade || '—'}</td>
                                 <td style="font-size:0.8125rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.descricao || '—'}</td>
                                 <td style="white-space:nowrap;font-weight:600;color:#fb923c;">${l.duracao}h</td>
                                 <td style="white-space:nowrap;font-size:0.8125rem;">R$ ${l.valorTotal.toFixed(2)}</td>

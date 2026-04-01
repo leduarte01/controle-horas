@@ -58,6 +58,9 @@ Object.assign(ControleHoras.prototype, {
                             <td style="color:rgba(255,255,255,0.5);font-size:0.8125rem;">${c.telefone || '—'}</td>
                             <td>
                                 <div class="action-cell">
+                                    <button class="btn-info-sm" onclick="controleHoras.copiarLinkDashboard('${c.id}')" title="Copiar link do dashboard público">
+                                        <i class="bi bi-link-45deg"></i>
+                                    </button>
                                     <button class="btn-warning-sm" onclick="controleHoras.editarCliente('${c.id}')">
                                         <i class="bi bi-pencil"></i>
                                     </button>
@@ -114,6 +117,22 @@ Object.assign(ControleHoras.prototype, {
             btnSubmit.querySelector('.btn-icon').className = 'bi bi-check-lg mr-1 btn-icon';
             btnSubmit.querySelector('.btn-label').textContent = 'Cadastrar';
         }
+    },
+
+    copiarLinkDashboard(id) {
+        const url = `${window.location.origin}/dashboard-publico.html?cliente=${id}`;
+        navigator.clipboard.writeText(url).then(() => {
+            this.mostrarToast('Link do dashboard copiado!', 'success');
+        }).catch(() => {
+            // Fallback para navegadores sem clipboard API
+            const input = document.createElement('input');
+            input.value = url;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            this.mostrarToast('Link do dashboard copiado!', 'success');
+        });
     }
 
 });

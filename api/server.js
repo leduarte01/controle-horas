@@ -99,7 +99,7 @@ app.get('/api/public/dashboard/:clienteId', async (req, res) => {
         if (projetoIds.length > 0) {
             const placeholders = projetoIds.map((_, i) => `$${i + 1}`).join(',');
             const lancResult = await pool.query(
-                `SELECT "id", "projetoId", "data", "duracao", "descricao" 
+                `SELECT "id", "projetoId", "data", "duracao", "atividade", "descricao" 
                  FROM lancamentos 
                  WHERE "projetoId" IN (${placeholders})
                  ORDER BY "data" DESC`,
@@ -121,6 +121,7 @@ app.get('/api/public/dashboard/:clienteId', async (req, res) => {
                 totalHoras,
                 lancamentos: lancs.map(l => ({
                     data: l.data,
+                    atividade: l.atividade || '',
                     descricao: l.descricao || '',
                     horas: l.duracao || 0
                 }))
@@ -264,10 +265,10 @@ app.post('/api/lancamentos', async (req, res) => {
   const l = req.body;
   try {
     const query = `
-      INSERT INTO lancamentos ("id", "projetoId", "data", "horaInicio", "horaFim", "duracao", "descricao", "valorTotal", "dataLancamento", "dataAtualizacao", "usuarioId")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *;
+      INSERT INTO lancamentos ("id", "projetoId", "data", "horaInicio", "horaFim", "duracao", "atividade", "descricao", "valorTotal", "dataLancamento", "dataAtualizacao", "usuarioId")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *;
     `;
-    const { rows } = await pool.query(query, [l.id, l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.descricao, l.valorTotal, l.dataLancamento, l.dataAtualizacao, req.user.id]);
+    const { rows } = await pool.query(query, [l.id, l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataLancamento, l.dataAtualizacao, req.user.id]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -277,10 +278,10 @@ app.put('/api/lancamentos/:id', async (req, res) => {
   try {
     const query = `
       UPDATE lancamentos SET 
-        "projetoId" = $1, "data" = $2, "horaInicio" = $3, "horaFim" = $4, "duracao" = $5, "descricao" = $6, "valorTotal" = $7, "dataAtualizacao" = $8
-      WHERE "id" = $9 AND "usuarioId" = $10 RETURNING *;
+        "projetoId" = $1, "data" = $2, "horaInicio" = $3, "horaFim" = $4, "duracao" = $5, "atividade" = $6, "descricao" = $7, "valorTotal" = $8, "dataAtualizacao" = $9
+      WHERE "id" = $10 AND "usuarioId" = $11 RETURNING *;
     `;
-    const { rows } = await pool.query(query, [l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.descricao, l.valorTotal, l.dataAtualizacao, req.params.id, req.user.id]);
+    const { rows } = await pool.query(query, [l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataAtualizacao, req.params.id, req.user.id]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -323,14 +324,14 @@ app.post('/api/migrar', async (req, res) => {
     
     for (const l of (lancamentos || [])) {
       await client.query(`
-        INSERT INTO lancamentos ("id", "projetoId", "data", "horaInicio", "horaFim", "duracao", "descricao", "valorTotal", "dataLancamento", "dataAtualizacao", "usuarioId")
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        INSERT INTO lancamentos ("id", "projetoId", "data", "horaInicio", "horaFim", "duracao", "atividade", "descricao", "valorTotal", "dataLancamento", "dataAtualizacao", "usuarioId")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT ("id") DO UPDATE SET
           "projetoId" = EXCLUDED."projetoId", "data" = EXCLUDED."data",
           "horaInicio" = EXCLUDED."horaInicio", "horaFim" = EXCLUDED."horaFim",
-          "duracao" = EXCLUDED."duracao", "descricao" = EXCLUDED."descricao",
+          "duracao" = EXCLUDED."duracao", "atividade" = EXCLUDED."atividade", "descricao" = EXCLUDED."descricao",
           "valorTotal" = EXCLUDED."valorTotal", "dataAtualizacao" = EXCLUDED."dataAtualizacao", "usuarioId" = EXCLUDED."usuarioId";
-      `, [l.id, l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.descricao, l.valorTotal, l.dataLancamento, l.dataAtualizacao, req.user.id]);
+      `, [l.id, l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataLancamento, l.dataAtualizacao, req.user.id]);
     }
     
     await client.query('COMMIT');

@@ -85,6 +85,7 @@ async function initDB() {
       ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
       ALTER TABLE projetos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
       ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
+      ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "atividade" TEXT;
     `);
 
     // Migração de Admin: Cria a conta superadmin e amarra aos dados velhos

@@ -8,9 +8,10 @@ Object.assign(ControleHoras.prototype, {
         const data       = document.getElementById('dataLancamento').value;
         const horaInicio = document.getElementById('horaInicio').value;
         const horaFim    = document.getElementById('horaFim').value;
+        const atividade  = document.getElementById('atividadeLancamento').value.trim();
         const descricao  = document.getElementById('descricaoAtividade').value.trim();
 
-        if (!projetoId || !data || !horaInicio || !horaFim || !descricao) {
+        if (!projetoId || !data || !horaInicio || !horaFim || !atividade) {
             this.mostrarToast('Preencha todos os campos obrigatórios.', 'error'); return;
         }
         if (horaInicio >= horaFim) {
@@ -36,6 +37,7 @@ Object.assign(ControleHoras.prototype, {
                     ...this.lancamentos[idx],
                     projetoId, data, horaInicio, horaFim,
                     duracao:    parseFloat(duracao.toFixed(2)),
+                    atividade,
                     descricao,
                     valorTotal: parseFloat(valorTotal.toFixed(2)),
                     dataAtualizacao: new Date().toISOString()
@@ -47,6 +49,7 @@ Object.assign(ControleHoras.prototype, {
                 id: this.gerarId(),
                 projetoId, data, horaInicio, horaFim,
                 duracao:     parseFloat(duracao.toFixed(2)),
+                atividade,
                 descricao,
                 valorTotal:  parseFloat(valorTotal.toFixed(2)),
                 dataLancamento: new Date().toISOString()
@@ -106,7 +109,8 @@ Object.assign(ControleHoras.prototype, {
             }
             document.getElementById('horaInicio').value          = lanc.horaInicio;
             document.getElementById('horaFim').value             = lanc.horaFim;
-            document.getElementById('descricaoAtividade').value  = lanc.descricao;
+            document.getElementById('atividadeLancamento').value  = lanc.atividade || '';
+            document.getElementById('descricaoAtividade').value   = lanc.descricao || '';
             this.alternarModoEdicaoLancamento(true);
             this.calcularTempo();
             document.getElementById('formLancamento').scrollIntoView({ behavior: 'smooth' });

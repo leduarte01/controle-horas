@@ -97,6 +97,7 @@ Object.assign(ControleHoras.prototype, {
                                 <thead>
                                     <tr>
                                         <th>Data</th>
+                                        <th>Atividade</th>
                                         <th>Descrição</th>
                                         <th>Início</th>
                                         <th>Fim</th>
@@ -109,7 +110,8 @@ Object.assign(ControleHoras.prototype, {
                                     ${pd.lancamentos.map(l => `
                                         <tr>
                                             <td style="white-space:nowrap;font-size:0.8125rem;">${this.formatarData(l.data)}</td>
-                                            <td style="font-size:0.8125rem;">${l.descricao}</td>
+                                            <td style="font-size:0.8125rem;font-weight:500;">${l.atividade || '—'}</td>
+                                            <td style="font-size:0.8125rem;">${l.descricao || '—'}</td>
                                             <td style="font-size:0.8125rem;">${l.horaInicio}</td>
                                             <td style="font-size:0.8125rem;">${l.horaFim}</td>
                                             <td style="font-weight:700;color:#fb923c;white-space:nowrap;">${l.duracao}h</td>
@@ -176,14 +178,14 @@ Object.assign(ControleHoras.prototype, {
         XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
 
         // ─ Detalhado (por cliente/projeto) sheet ─
-        const detRows = [['Data', 'Cliente', 'Projeto', 'Descrição', 'Hora Início', 'Hora Fim', 'Duração (h)']];
+        const detRows = [['Data', 'Cliente', 'Projeto', 'Atividade', 'Descrição', 'Hora Início', 'Hora Fim', 'Duração (h)']];
         grupos.forEach(cd => {
             detRows.push(['', `=== ${cd.nomeCliente.toUpperCase()} ===`, '', '', '', '', cd.totalHoras.toFixed(1)]);
             cd.projetos.forEach(pd => {
                 detRows.push(['', '', `--- ${pd.nomeProjeto} ---`, '', '', '', pd.totalHoras.toFixed(1)]);
                 pd.lancamentos.forEach(l => detRows.push([
                     this.formatarData(l.data), cd.nomeCliente, pd.nomeProjeto,
-                    l.descricao, l.horaInicio, l.horaFim, l.duracao
+                    l.atividade || '', l.descricao, l.horaInicio, l.horaFim, l.duracao
                 ]));
                 detRows.push([]);
             });
@@ -196,7 +198,7 @@ Object.assign(ControleHoras.prototype, {
         XLSX.utils.book_append_sheet(wb, wsDet, 'Detalhado');
 
         // ─ Detalhado por Data (flat, date-sorted) sheet ─
-        const porDataRows = [['Data', 'Cliente', 'Projeto', 'Descrição', 'Hora Início', 'Hora Fim', 'Duração (h)']];
+        const porDataRows = [['Data', 'Cliente', 'Projeto', 'Atividade', 'Descrição', 'Hora Início', 'Hora Fim', 'Duração (h)']];
         this.dadosRelatorio.lancamentos.forEach(l => {
             const projeto = this.projetos.find(p => p.id === l.projetoId);
             const cliente = projeto ? this.clientes.find(c => c.id === projeto.clienteId) : null;
@@ -204,7 +206,7 @@ Object.assign(ControleHoras.prototype, {
                 this.formatarData(l.data),
                 cliente ? cliente.nome : 'N/A',
                 projeto ? projeto.nome : 'N/A',
-                l.descricao, l.horaInicio, l.horaFim, l.duracao
+                l.atividade || '', l.descricao, l.horaInicio, l.horaFim, l.duracao
             ]);
         });
         const totalPD = this.dadosRelatorio.lancamentos.reduce((s, l) => s + l.duracao, 0);
@@ -220,11 +222,11 @@ Object.assign(ControleHoras.prototype, {
                 [`RELATÓRIO — ${cd.nomeCliente.toUpperCase()}`],
                 ['Período:', this.dadosRelatorio.periodo],
                 [],
-                ['Projeto', 'Data', 'Descrição', 'Início', 'Fim', 'Duração']
+                ['Projeto', 'Data', 'Atividade', 'Descrição', 'Início', 'Fim', 'Duração']
             ];
             cd.projetos.forEach(pd => {
                 pd.lancamentos.forEach(l => {
-                    rows.push([pd.nomeProjeto, this.formatarData(l.data), l.descricao, l.horaInicio, l.horaFim, l.duracao]);
+                    rows.push([pd.nomeProjeto, this.formatarData(l.data), l.atividade || '', l.descricao, l.horaInicio, l.horaFim, l.duracao]);
                 });
             });
             rows.push([], ['TOTAL:', '', '', '', '', cd.totalHoras.toFixed(1)]);
@@ -263,9 +265,18 @@ Object.assign(ControleHoras.prototype, {
             const cliente = projeto ? this.clientes.find(c => c.id === projeto.clienteId) : null;
             doc.text(`${this.formatarData(l.data)}  ${cliente ? cliente.nome : 'N/A'}  /  ${projeto ? projeto.nome : 'N/A'}`, 20, y);
             doc.text(`${l.horaInicio}–${l.horaFim}  (${l.duracao}h)  R$ ${l.valorTotal.toFixed(2)}`, 20, y + 6);
-            const lines = doc.splitTextToSize(l.descricao, 170);
-            doc.text(lines, 20, y + 12);
-            y += 14 + (lines.length - 1) * 5 + 6;
+            if (l.atividade) {
+                doc.setFont(undefined, 'bold');
+                doc.text(`Atividade: ${l.atividade}`, 20, y + 12);
+                doc.setFont(undefined, 'normal');
+                const lines = doc.splitTextToSize(l.descricao || '', 170);
+                doc.text(lines, 20, y + 18);
+                y += 20 + (lines.length - 1) * 5 + 6;
+            } else {
+                const lines = doc.splitTextToSize(l.descricao || '', 170);
+                doc.text(lines, 20, y + 12);
+                y += 14 + (lines.length - 1) * 5 + 6;
+            }
         });
 
         doc.save(`relatorio-horas-${new Date().toISOString().split('T')[0]}.pdf`);
