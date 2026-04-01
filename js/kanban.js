@@ -1,51 +1,165 @@
 /**
  * js/kanban.js — Kanban board engine mixed into ControleHoras
- * Drag & Drop nativo HTML5 + CRUD de tarefas
+ * Cascading filter: Cliente → Projeto → Atividade → Tasks
+ * Drag & Drop nativo HTML5 + CRUD de tarefas + CRUD de atividades
  */
+
+// Pre-defined activity suggestions
+const ATIVIDADES_SUGERIDAS = [
+    { nome: 'Desenvolvimento',         descricao: 'Codificação, implementação de funcionalidades', cor: '#3b82f6' },
+    { nome: 'Suporte',                  descricao: 'Atendimento, resolução de chamados',           cor: '#22c55e' },
+    { nome: 'Reunião',                  descricao: 'Alinhamentos, dailies, retrospectivas',        cor: '#a855f7' },
+    { nome: 'Documentação',             descricao: 'Manuais, especificações técnicas',             cor: '#06b6d4' },
+    { nome: 'Testes / QA',              descricao: 'Testes funcionais, validação de qualidade',    cor: '#eab308' },
+    { nome: 'Deploy / Infraestrutura',  descricao: 'Publicações, configurações de servidor',       cor: '#ef4444' },
+    { nome: 'Design / UX',              descricao: 'Protótipos, wireframes, interfaces',           cor: '#ec4899' },
+    { nome: 'Análise / Levantamento',   descricao: 'Levantamento de requisitos, análise de negócio', cor: '#14b8a6' },
+    { nome: 'Treinamento',              descricao: 'Capacitação de equipe ou cliente',             cor: '#f97316' },
+    { nome: 'Correção de Bugs',         descricao: 'Correção de erros e falhas',                   cor: '#dc2626' },
+    { nome: 'Consultoria',              descricao: 'Consultoria estratégica, assessoria técnica',  cor: '#8b5cf6' },
+    { nome: 'Automação',                descricao: 'Robôs, scripts, workflows automatizados',      cor: '#10b981' },
+];
+
 Object.assign(ControleHoras.prototype, {
 
     kanbanProjetoAtual: null,
+    kanbanAtividadeAtual: null,
     kanbanTarefas: [],
+    kanbanAtividades: [],
 
     // ─── Inicialização do Kanban ───
     async inicializarKanban() {
-        this.atualizarSelectKanban();
-        const sel = document.getElementById('kanbanProjetoSelect');
-        if (sel && sel.value) {
-            await this.carregarKanban(sel.value);
-        } else {
-            document.getElementById('kanbanBoard').innerHTML =
-                '<p class="text-neutral-500 text-center py-16 text-sm">Selecione um projeto para visualizar o Kanban.</p>';
-        }
+        this.atualizarSelectKanbanClientes();
     },
 
-    atualizarSelectKanban() {
-        const sel = document.getElementById('kanbanProjetoSelect');
+    // ─── Cascata: Popula selects ───
+    atualizarSelectKanbanClientes() {
+        const sel = document.getElementById('kanbanClienteSelect');
         if (!sel) return;
         const prev = sel.value;
-        sel.innerHTML = '<option value="">Selecione um projeto</option>';
-        this.projetos.forEach(p => {
-            const c = this.clientes.find(cl => cl.id === p.clienteId);
+        sel.innerHTML = '<option value="">Selecione um cliente</option>';
+        this.clientes.forEach(c => {
             const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = (c ? c.nome + ' — ' : '') + p.nome;
+            opt.value = c.id; opt.textContent = c.nome;
             sel.appendChild(opt);
         });
-        if (prev && this.projetos.some(p => p.id === prev)) sel.value = prev;
+        if (prev && this.clientes.some(c => c.id === prev)) {
+            sel.value = prev;
+        }
+        // Reset downstream
+        this._resetProjetoSelect();
+        this._resetAtividadeSelect();
+        this._resetKanbanBoard();
+        this._updateButtonStates();
     },
 
-    // ─── Carregar Kanban de um projeto ───
-    async carregarKanban(projetoId) {
+    onKanbanClienteChange(clienteId) {
+        this._resetAtividadeSelect();
+        this._resetKanbanBoard();
+        const selProjeto = document.getElementById('kanbanProjetoSelect');
+        selProjeto.innerHTML = '<option value="">Selecione um projeto</option>';
+
+        if (!clienteId) {
+            selProjeto.disabled = true;
+            this._updateButtonStates();
+            return;
+        }
+
+        const projetosFiltrados = this.projetos.filter(p => p.clienteId === clienteId);
+        projetosFiltrados.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id; opt.textContent = p.nome;
+            selProjeto.appendChild(opt);
+        });
+        selProjeto.disabled = false;
+        this._updateButtonStates();
+    },
+
+    async onKanbanProjetoChange(projetoId) {
+        this._resetKanbanBoard();
+        const selAtividade = document.getElementById('kanbanAtividadeSelect');
+        selAtividade.innerHTML = '<option value="">Selecione uma atividade</option>';
+
         if (!projetoId) {
-            document.getElementById('kanbanBoard').innerHTML =
-                '<p class="text-neutral-500 text-center py-16 text-sm">Selecione um projeto para visualizar o Kanban.</p>';
+            selAtividade.disabled = true;
+            this.kanbanProjetoAtual = null;
+            this._updateButtonStates();
+            return;
+        }
+
+        this.kanbanProjetoAtual = this.projetos.find(p => p.id === projetoId);
+
+        // Fetch atividades from API
+        try {
+            const resp = await fetch(`${this.apiBaseUrl}/atividades/${projetoId}`, {
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            this.kanbanAtividades = await resp.json();
+        } catch (e) {
+            this.kanbanAtividades = [];
+        }
+
+        this.kanbanAtividades.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = a.nome;
+            selAtividade.appendChild(opt);
+        });
+        selAtividade.disabled = false;
+        this._updateButtonStates();
+    },
+
+    async onKanbanAtividadeChange(atividadeId) {
+        if (!atividadeId) {
+            this.kanbanAtividadeAtual = null;
+            this._resetKanbanBoard();
+            this._updateButtonStates();
+            return;
+        }
+
+        this.kanbanAtividadeAtual = this.kanbanAtividades.find(a => a.id === atividadeId);
+        this._updateButtonStates();
+        await this.carregarKanban(this.kanbanProjetoAtual.id, atividadeId);
+    },
+
+    _resetProjetoSelect() {
+        const sel = document.getElementById('kanbanProjetoSelect');
+        sel.innerHTML = '<option value="">Selecione um projeto</option>';
+        sel.disabled = true;
+        this.kanbanProjetoAtual = null;
+    },
+
+    _resetAtividadeSelect() {
+        const sel = document.getElementById('kanbanAtividadeSelect');
+        sel.innerHTML = '<option value="">Selecione uma atividade</option>';
+        sel.disabled = true;
+        this.kanbanAtividadeAtual = null;
+        this.kanbanAtividades = [];
+    },
+
+    _resetKanbanBoard() {
+        document.getElementById('kanbanBoard').innerHTML =
+            '<p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente, projeto e atividade para visualizar o Kanban.</p>';
+    },
+
+    _updateButtonStates() {
+        const hasProjeto = !!this.kanbanProjetoAtual;
+        const hasAtividade = !!this.kanbanAtividadeAtual;
+        document.getElementById('btnNovaAtividade').disabled = !hasProjeto;
+        document.getElementById('btnEditarColunas').disabled = !hasAtividade;
+    },
+
+    // ─── Carregar Kanban de um projeto + atividade ───
+    async carregarKanban(projetoId, atividadeId) {
+        if (!projetoId || !atividadeId) {
+            this._resetKanbanBoard();
             return;
         }
         this.kanbanProjetoAtual = this.projetos.find(p => p.id === projetoId);
         if (!this.kanbanProjetoAtual) return;
 
         try {
-            const resp = await fetch(`${this.apiBaseUrl}/tarefas/${projetoId}`, {
+            const resp = await fetch(`${this.apiBaseUrl}/tarefas/${projetoId}?atividadeId=${atividadeId}`, {
                 headers: { 'Authorization': 'Bearer ' + this.token }
             });
             this.kanbanTarefas = await resp.json();
@@ -148,16 +262,13 @@ Object.assign(ControleHoras.prototype, {
 
         tarefa.coluna = colunaDestino;
 
-        // Recalcular ordens na coluna destino
         const tarefasCol = this.kanbanTarefas
             .filter(t => t.coluna === colunaDestino)
             .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
-
         tarefasCol.forEach((t, i) => { t.ordem = i; });
 
         this.renderKanban();
 
-        // Persistir reordenação
         try {
             await fetch(`${this.apiBaseUrl}/tarefas-reordenar`, {
                 method: 'PUT',
@@ -175,14 +286,10 @@ Object.assign(ControleHoras.prototype, {
         const form  = document.getElementById('formTarefa');
         form.reset();
 
-        // Helper to set date via Flatpickr or native input
         const fp = window.fpInstances || {};
         const setDate = (id, val) => {
-            if (fp[id]) {
-                fp[id].setDate(val || '', true);
-            } else {
-                document.getElementById(id).value = val || '';
-            }
+            if (fp[id]) { fp[id].setDate(val || '', true); }
+            else { document.getElementById(id).value = val || ''; }
         };
 
         if (tarefaId) {
@@ -207,7 +314,7 @@ Object.assign(ControleHoras.prototype, {
             document.getElementById('btnExcluirTarefa').style.display = 'none';
         }
 
-        // Popula select de colunas do modal
+        // Popula select de colunas
         const selColuna = document.getElementById('tarefaColuna');
         selColuna.innerHTML = '';
         let colunas = this.kanbanProjetoAtual?.colunasKanban;
@@ -244,12 +351,12 @@ Object.assign(ControleHoras.prototype, {
             dataInicio: document.getElementById('tarefaDataInicio').value || null,
             dataPrevisao: document.getElementById('tarefaDataPrevisao').value || null,
             dataEntrega: document.getElementById('tarefaDataEntrega').value || null,
-            projetoId: this.kanbanProjetoAtual.id
+            projetoId: this.kanbanProjetoAtual.id,
+            atividadeId: this.kanbanAtividadeAtual?.id || null
         };
 
         try {
             if (id) {
-                // Editar
                 const t = this.kanbanTarefas.find(x => x.id === id);
                 dados.ordem = t ? t.ordem : 0;
                 await fetch(`${this.apiBaseUrl}/tarefas/${id}`, {
@@ -259,7 +366,6 @@ Object.assign(ControleHoras.prototype, {
                 });
                 this.mostrarToast('Tarefa atualizada!', 'success');
             } else {
-                // Criar
                 dados.id = this.gerarId();
                 dados.ordem = this.kanbanTarefas.filter(t => t.coluna === dados.coluna).length;
                 await fetch(`${this.apiBaseUrl}/tarefas`, {
@@ -271,7 +377,7 @@ Object.assign(ControleHoras.prototype, {
             }
 
             this.fecharModalTarefa();
-            await this.carregarKanban(this.kanbanProjetoAtual.id);
+            await this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual?.id);
         } catch (e) {
             this.mostrarToast('Erro ao salvar tarefa.', 'error');
         }
@@ -289,9 +395,166 @@ Object.assign(ControleHoras.prototype, {
             });
             this.fecharModalTarefa();
             this.mostrarToast('Tarefa excluída!', 'success');
-            await this.carregarKanban(this.kanbanProjetoAtual.id);
+            await this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual?.id);
         } catch (e) {
             this.mostrarToast('Erro ao excluir tarefa.', 'error');
+        }
+    },
+
+    // ─── CRUD de Atividades ───
+    abrirModalAtividade(atividadeId) {
+        const modal = document.getElementById('modalAtividade');
+        document.getElementById('formAtividade').reset();
+
+        if (atividadeId) {
+            const a = this.kanbanAtividades.find(x => x.id === atividadeId);
+            if (!a) return;
+            document.getElementById('atividadeId').value = a.id;
+            document.getElementById('atividadeNome').value = a.nome;
+            document.getElementById('atividadeDescricao').value = a.descricao || '';
+            document.getElementById('atividadeCor').value = a.cor || '#f97316';
+            document.getElementById('modalAtividadeTitulo').textContent = 'Editar Atividade';
+            document.getElementById('btnExcluirAtividade').style.display = 'inline-flex';
+            document.getElementById('importarAtividadesSection').style.display = 'none';
+        } else {
+            document.getElementById('atividadeId').value = '';
+            document.getElementById('atividadeCor').value = '#f97316';
+            document.getElementById('modalAtividadeTitulo').textContent = 'Nova Atividade';
+            document.getElementById('btnExcluirAtividade').style.display = 'none';
+            document.getElementById('importarAtividadesSection').style.display = 'block';
+        }
+
+        modal.classList.add('active');
+    },
+
+    fecharModalAtividade() {
+        document.getElementById('modalAtividade').classList.remove('active');
+    },
+
+    async salvarAtividade() {
+        const id = document.getElementById('atividadeId').value;
+        const nome = document.getElementById('atividadeNome').value.trim();
+        if (!nome) { this.mostrarToast('Informe o nome da atividade.', 'error'); return; }
+
+        const dados = {
+            nome,
+            descricao: document.getElementById('atividadeDescricao').value.trim(),
+            cor: document.getElementById('atividadeCor').value,
+            projetoId: this.kanbanProjetoAtual.id
+        };
+
+        try {
+            if (id) {
+                await fetch(`${this.apiBaseUrl}/atividades/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                    body: JSON.stringify(dados)
+                });
+                this.mostrarToast('Atividade atualizada!', 'success');
+            } else {
+                dados.id = this.gerarId();
+                await fetch(`${this.apiBaseUrl}/atividades`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                    body: JSON.stringify(dados)
+                });
+                this.mostrarToast('Atividade criada!', 'success');
+            }
+
+            this.fecharModalAtividade();
+            // Refresh atividades select
+            await this.onKanbanProjetoChange(this.kanbanProjetoAtual.id);
+        } catch (e) {
+            this.mostrarToast('Erro ao salvar atividade.', 'error');
+        }
+    },
+
+    async excluirAtividade() {
+        const id = document.getElementById('atividadeId').value;
+        if (!id) return;
+        if (!confirm('Excluir esta atividade removerá também todas as tarefas vinculadas. Continuar?')) return;
+
+        try {
+            await fetch(`${this.apiBaseUrl}/atividades/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            this.fecharModalAtividade();
+            this.mostrarToast('Atividade excluída!', 'success');
+            this.kanbanAtividadeAtual = null;
+            await this.onKanbanProjetoChange(this.kanbanProjetoAtual.id);
+            this._resetKanbanBoard();
+        } catch (e) {
+            this.mostrarToast('Erro ao excluir atividade.', 'error');
+        }
+    },
+
+    // ─── Importar Atividades Sugeridas ───
+    abrirImportarAtividades() {
+        this.fecharModalAtividade();
+        const modal = document.getElementById('modalImportarAtividades');
+        const container = document.getElementById('checklistAtividades');
+
+        // Filter out already existing activities
+        const existentes = this.kanbanAtividades.map(a => a.nome.toLowerCase());
+
+        container.innerHTML = ATIVIDADES_SUGERIDAS.map((a, i) => {
+            const jaExiste = existentes.includes(a.nome.toLowerCase());
+            return `
+            <label class="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-white/[0.04] transition-colors ${jaExiste ? 'opacity-40' : ''}"
+                   style="border:1px solid rgba(255,255,255,0.06);">
+                <input type="checkbox" class="atividade-check" data-index="${i}" ${jaExiste ? 'disabled' : 'checked'}
+                       style="accent-color:#f97316;width:18px;height:18px;">
+                <span class="flex-1">
+                    <span class="font-medium text-sm" style="color:${a.cor};">${this.escapeHtml(a.nome)}</span>
+                    <span class="text-xs text-neutral-500 block">${this.escapeHtml(a.descricao)}</span>
+                </span>
+                ${jaExiste ? '<span class="text-xs text-neutral-500">Já existe</span>' : ''}
+            </label>`;
+        }).join('');
+
+        modal.classList.add('active');
+    },
+
+    fecharImportarAtividades() {
+        document.getElementById('modalImportarAtividades').classList.remove('active');
+    },
+
+    toggleAllAtividades() {
+        const checks = document.querySelectorAll('.atividade-check:not(:disabled)');
+        const allChecked = [...checks].every(c => c.checked);
+        checks.forEach(c => { c.checked = !allChecked; });
+    },
+
+    async importarAtividadesSelecionadas() {
+        const checks = document.querySelectorAll('.atividade-check:checked:not(:disabled)');
+        if (checks.length === 0) {
+            this.mostrarToast('Selecione pelo menos uma atividade.', 'error');
+            return;
+        }
+
+        try {
+            for (const check of checks) {
+                const idx = parseInt(check.dataset.index);
+                const sugestao = ATIVIDADES_SUGERIDAS[idx];
+                await fetch(`${this.apiBaseUrl}/atividades`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                    body: JSON.stringify({
+                        id: this.gerarId(),
+                        projetoId: this.kanbanProjetoAtual.id,
+                        nome: sugestao.nome,
+                        descricao: sugestao.descricao,
+                        cor: sugestao.cor
+                    })
+                });
+            }
+
+            this.fecharImportarAtividades();
+            this.mostrarToast(`${checks.length} atividade(s) importada(s)!`, 'success');
+            await this.onKanbanProjetoChange(this.kanbanProjetoAtual.id);
+        } catch (e) {
+            this.mostrarToast('Erro ao importar atividades.', 'error');
         }
     },
 
@@ -311,12 +574,9 @@ Object.assign(ControleHoras.prototype, {
 
         const handle = div.querySelector('.coluna-drag-handle');
 
-        // Only enable drag when pressing the handle
         handle.addEventListener('mousedown', () => {
             div.setAttribute('draggable', 'true');
         });
-
-        // Disable drag after release so inputs/buttons work normally
         document.addEventListener('mouseup', function onUp() {
             div.setAttribute('draggable', 'false');
         });
@@ -325,10 +585,8 @@ Object.assign(ControleHoras.prototype, {
             self._colunaDragItem = div;
             div.classList.add('coluna-dragging');
             e.dataTransfer.effectAllowed = 'move';
-            // Need a small timeout so the browser renders the drag ghost
             setTimeout(() => { div.style.opacity = '0.4'; }, 0);
         });
-
         div.addEventListener('dragend', () => {
             div.classList.remove('coluna-dragging');
             div.style.opacity = '';
@@ -337,7 +595,6 @@ Object.assign(ControleHoras.prototype, {
             document.querySelectorAll('.coluna-editor-item.coluna-drag-over')
                 .forEach(el => el.classList.remove('coluna-drag-over'));
         });
-
         div.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
@@ -345,11 +602,9 @@ Object.assign(ControleHoras.prototype, {
                 div.classList.add('coluna-drag-over');
             }
         });
-
         div.addEventListener('dragleave', () => {
             div.classList.remove('coluna-drag-over');
         });
-
         div.addEventListener('drop', (e) => {
             e.preventDefault();
             div.classList.remove('coluna-drag-over');
@@ -409,7 +664,6 @@ Object.assign(ControleHoras.prototype, {
 
         this.kanbanProjetoAtual.colunasKanban = colunas;
 
-        // Salvar no servidor
         try {
             await fetch(`${this.apiBaseUrl}/projetos/${this.kanbanProjetoAtual.id}`, {
                 method: 'PUT',
@@ -424,7 +678,6 @@ Object.assign(ControleHoras.prototype, {
                 })
             });
 
-            // Atualizar no array local
             const idx = this.projetos.findIndex(p => p.id === this.kanbanProjetoAtual.id);
             if (idx !== -1) this.projetos[idx].colunasKanban = colunas;
 

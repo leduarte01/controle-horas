@@ -256,13 +256,66 @@ app.delete('/api/projetos/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// --- ATIVIDADES ---
+app.get('/api/atividades/:projetoId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM atividades WHERE "projetoId" = $1 AND "usuarioId" = $2 ORDER BY "nome" ASC',
+      [req.params.projetoId, req.user.id]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/atividades', async (req, res) => {
+  const a = req.body;
+  try {
+    const query = `
+      INSERT INTO atividades ("id", "usuarioId", "projetoId", "nome", "descricao", "cor", "dataCriacao", "dataAtualizacao")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
+    `;
+    const { rows } = await pool.query(query, [
+      a.id, req.user.id, a.projetoId, a.nome, a.descricao || '',
+      a.cor || '#f97316', a.dataCriacao || new Date().toISOString(), a.dataAtualizacao || new Date().toISOString()
+    ]);
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/atividades/:id', async (req, res) => {
+  const a = req.body;
+  try {
+    const query = `
+      UPDATE atividades SET "nome" = $1, "descricao" = $2, "cor" = $3, "dataAtualizacao" = $4
+      WHERE "id" = $5 AND "usuarioId" = $6 RETURNING *;
+    `;
+    const { rows } = await pool.query(query, [
+      a.nome, a.descricao || '', a.cor || '#f97316', new Date().toISOString(), req.params.id, req.user.id
+    ]);
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/atividades/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM atividades WHERE "id" = $1 AND "usuarioId" = $2', [req.params.id, req.user.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // --- TAREFAS (KANBAN) ---
 app.get('/api/tarefas/:projetoId', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "usuarioId" = $2 ORDER BY "ordem" ASC',
-      [req.params.projetoId, req.user.id]
-    );
+    const atividadeId = req.query.atividadeId;
+    let query, params;
+    if (atividadeId) {
+      query = 'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "atividadeId" = $2 AND "usuarioId" = $3 ORDER BY "ordem" ASC';
+      params = [req.params.projetoId, atividadeId, req.user.id];
+    } else {
+      query = 'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "usuarioId" = $2 ORDER BY "ordem" ASC';
+      params = [req.params.projetoId, req.user.id];
+    }
+    const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -271,11 +324,11 @@ app.post('/api/tarefas', async (req, res) => {
   const t = req.body;
   try {
     const query = `
-      INSERT INTO tarefas ("id", "usuarioId", "projetoId", "coluna", "titulo", "descricao", "ordem", "dataInicio", "dataPrevisao", "dataEntrega", "dataCriacao", "dataAtualizacao")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *;
+      INSERT INTO tarefas ("id", "usuarioId", "projetoId", "atividadeId", "coluna", "titulo", "descricao", "ordem", "dataInicio", "dataPrevisao", "dataEntrega", "dataCriacao", "dataAtualizacao")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *;
     `;
     const { rows } = await pool.query(query, [
-      t.id, req.user.id, t.projetoId, t.coluna || 'Backlog', t.titulo, t.descricao || '',
+      t.id, req.user.id, t.projetoId, t.atividadeId || null, t.coluna || 'Backlog', t.titulo, t.descricao || '',
       t.ordem || 0, t.dataInicio || null, t.dataPrevisao || null, t.dataEntrega || null,
       t.dataCriacao || new Date().toISOString(), t.dataAtualizacao || new Date().toISOString()
     ]);

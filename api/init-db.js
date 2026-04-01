@@ -109,6 +109,26 @@ async function initDB() {
       );
     `);
 
+    // Tabela de Atividades (por projeto)
+    console.log('Criando tabela de atividades...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS atividades (
+        "id" VARCHAR(50) PRIMARY KEY,
+        "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE,
+        "projetoId" VARCHAR(50) REFERENCES projetos("id") ON DELETE CASCADE,
+        "nome" VARCHAR(255) NOT NULL,
+        "descricao" TEXT,
+        "cor" VARCHAR(20) DEFAULT '#f97316',
+        "dataCriacao" VARCHAR(50),
+        "dataAtualizacao" VARCHAR(50)
+      );
+    `);
+
+    // Adiciona atividadeId à tabela tarefas (migração segura)
+    await pool.query(`
+      ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "atividadeId" VARCHAR(50) REFERENCES atividades("id") ON DELETE CASCADE;
+    `);
+
     // Migração de Admin: Cria a conta superadmin e amarra aos dados velhos
     const crypto = require('crypto');
     const adminUser = process.env.ADMIN_USER || 'admin';

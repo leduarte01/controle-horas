@@ -481,25 +481,45 @@
                 <h1 class="text-4xl font-medium tracking-tighter">Kanban</h1>
             </div>
 
-            <!-- Filtro de Projeto + Botão Colunas -->
+            <!-- Filtro Cascata: Cliente → Projeto → Atividade -->
             <div class="glass-card mb-5">
-                <div class="card-header"><i class="bi bi-funnel mr-2 text-orange-500/70"></i>Projeto</div>
+                <div class="card-header"><i class="bi bi-funnel mr-2 text-orange-500/70"></i>Filtrar Kanban</div>
                 <div class="p-5">
-                    <div class="flex gap-3 items-end flex-wrap">
-                        <div style="flex:1;min-width:220px;">
-                            <label class="form-label" for="kanbanProjetoSelect">Projeto</label>
-                            <select class="form-control" id="kanbanProjetoSelect" onchange="controleHoras.carregarKanban(this.value)"></select>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                        <div>
+                            <label class="form-label" for="kanbanClienteSelect">Cliente</label>
+                            <select class="form-control" id="kanbanClienteSelect" onchange="controleHoras.onKanbanClienteChange(this.value)">
+                                <option value="">Selecione um cliente</option>
+                            </select>
                         </div>
-                        <button type="button" class="btn-ghost" style="padding:8px 14px;font-size:0.8125rem;white-space:nowrap;" onclick="controleHoras.abrirModalColunas()">
-                            <i class="bi bi-gear mr-1"></i>Editar Colunas
-                        </button>
+                        <div>
+                            <label class="form-label" for="kanbanProjetoSelect">Projeto</label>
+                            <select class="form-control" id="kanbanProjetoSelect" onchange="controleHoras.onKanbanProjetoChange(this.value)" disabled>
+                                <option value="">Selecione um projeto</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label" for="kanbanAtividadeSelect">Atividade</label>
+                            <select class="form-control" id="kanbanAtividadeSelect" onchange="controleHoras.onKanbanAtividadeChange(this.value)" disabled>
+                                <option value="">Selecione uma atividade</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" class="btn-primary flex-1" style="padding:8px 14px;font-size:0.8125rem;" onclick="controleHoras.abrirModalAtividade()" id="btnNovaAtividade" disabled>
+                                <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                                <i class="bi bi-plus-lg mr-1"></i><span class="btn-label">Nova Atividade</span>
+                            </button>
+                            <button type="button" class="btn-ghost" style="padding:8px 14px;font-size:0.8125rem;white-space:nowrap;" onclick="controleHoras.abrirModalColunas()" id="btnEditarColunas" disabled>
+                                <i class="bi bi-gear mr-1"></i>Colunas
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Quadro Kanban -->
             <div id="kanbanBoard" class="kanban-board">
-                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um projeto para visualizar o Kanban.</p>
+                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente, projeto e atividade para visualizar o Kanban.</p>
             </div>
         </section>
 
@@ -580,7 +600,73 @@
     </div>
 </div>
 
-<!-- ═══ Mobile Bottom Navigation ═══ -->
+<!-- ═══ Modal de Atividade ═══ -->
+<div id="modalAtividade" class="kanban-modal-overlay" onclick="if(event.target===this) controleHoras.fecharModalAtividade();">
+    <div class="kanban-modal glass-card" style="max-width:480px;">
+        <div class="card-header" style="justify-content:space-between;">
+            <span><i class="bi bi-activity mr-2 text-orange-500/70"></i><span id="modalAtividadeTitulo">Nova Atividade</span></span>
+            <button class="btn-ghost" style="padding:4px 8px;" onclick="controleHoras.fecharModalAtividade();"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <form id="formAtividade" class="p-5" onsubmit="event.preventDefault(); controleHoras.salvarAtividade();">
+            <input type="hidden" id="atividadeId">
+            <div class="mb-4">
+                <label class="form-label" for="atividadeNome">Nome *</label>
+                <input type="text" class="form-control" id="atividadeNome" required placeholder="Ex: Desenvolvimento">
+            </div>
+            <div class="mb-4">
+                <label class="form-label" for="atividadeDescricao">Descrição</label>
+                <textarea class="form-control" id="atividadeDescricao" rows="2" placeholder="Detalhes da atividade..."></textarea>
+            </div>
+            <div class="mb-5">
+                <label class="form-label" for="atividadeCor">Cor</label>
+                <input type="color" id="atividadeCor" value="#f97316" style="width:48px;height:36px;border:none;background:transparent;cursor:pointer;">
+            </div>
+            <div class="flex gap-3 justify-between">
+                <button type="button" id="btnExcluirAtividade" class="btn-ghost" style="color:#ef4444;display:none;" onclick="controleHoras.excluirAtividade();">
+                    <i class="bi bi-trash mr-1"></i>Excluir
+                </button>
+                <div class="flex gap-3 ml-auto">
+                    <button type="button" class="btn-ghost" onclick="controleHoras.fecharModalAtividade();">Cancelar</button>
+                    <button type="submit" class="btn-primary">
+                        <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                        <i class="bi bi-check-lg mr-1"></i><span class="btn-label">Salvar</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+        <!-- Importar atividades sugeridas -->
+        <div class="px-5 pb-5" id="importarAtividadesSection">
+            <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:16px;">
+                <button type="button" class="btn-ghost w-full" style="border:1px dashed rgba(255,255,255,0.12);font-size:0.8125rem;" onclick="controleHoras.abrirImportarAtividades();">
+                    <i class="bi bi-download mr-1"></i>Importar Atividades Sugeridas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ Modal de Importação de Atividades ═══ -->
+<div id="modalImportarAtividades" class="kanban-modal-overlay" onclick="if(event.target===this) controleHoras.fecharImportarAtividades();">
+    <div class="kanban-modal glass-card" style="max-width:520px;">
+        <div class="card-header" style="justify-content:space-between;">
+            <span><i class="bi bi-download mr-2 text-orange-500/70"></i>Importar Atividades Sugeridas</span>
+            <button class="btn-ghost" style="padding:4px 8px;" onclick="controleHoras.fecharImportarAtividades();"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="p-5">
+            <p class="text-sm text-neutral-400 mb-4">Selecione as atividades que deseja criar para este projeto:</p>
+            <div id="checklistAtividades" class="mb-4" style="display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;"></div>
+            <div class="flex gap-3 justify-between">
+                <button type="button" class="btn-ghost text-sm" onclick="controleHoras.toggleAllAtividades();">
+                    <i class="bi bi-check-all mr-1"></i>Marcar/Desmarcar Todos
+                </button>
+                <button type="button" class="btn-primary" onclick="controleHoras.importarAtividadesSelecionadas();">
+                    <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                    <i class="bi bi-check-lg mr-1"></i><span class="btn-label">Importar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <nav class="fixed bottom-0 left-0 right-0 z-50 md:hidden flex bg-[#050505]/95 backdrop-blur-md border-t border-white/[0.06]">
     <button class="mobile-nav-item flex-1" data-section="dashboard"  onclick="navegarPara('dashboard')">
         <i class="bi bi-speedometer2 text-lg"></i><span>Dashboard</span>
