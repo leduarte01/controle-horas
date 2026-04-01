@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acompanhamento de Horas</title>
+    <meta name="description" content="Dashboard público de acompanhamento de horas lançadas por projeto.">
+    <meta name="robots" content="noindex, nofollow">
+
+    <!-- Inter + Instrument Serif fonts (local assets) -->
+    <link rel="stylesheet" href="assets/css2_2832c0ff631d.css">
+    <link rel="stylesheet" href="assets/css2_2b2d87bc82d8.css">
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Flatpickr datepicker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+    <!-- Main design system CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background: #050505;
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(0.4); cursor: pointer; }
+
+        /* ── Content wrapper ── */
+        .pub-content {
+            position: relative; z-index: 10;
+            max-width: 1000px; margin: 0 auto;
+            padding: 40px 20px 60px;
+        }
+
+        /* ── Header ── */
+        .pub-header {
+            text-align: center; margin-bottom: 48px;
+            animation: fadeSlideIn 0.4s ease both;
+        }
+        .pub-header-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            margin-bottom: 16px;
+        }
+        .pub-header-badge .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #f97316;
+            box-shadow: 0 0 12px rgba(249,115,22,0.6);
+        }
+        .pub-header-badge span {
+            font-size: 0.6875rem; font-weight: 700;
+            letter-spacing: 0.15em; text-transform: uppercase;
+            color: rgba(249,115,22,0.8);
+        }
+        .pub-header h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 600; letter-spacing: -0.03em;
+            margin: 0 0 6px 0;
+        }
+        .pub-header .subtitle {
+            font-size: 1rem; color: rgba(255,255,255,0.5);
+            font-weight: 400; margin: 0;
+        }
+
+        /* ── Stat cards ── */
+        .pub-stats {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px; margin-bottom: 40px;
+            animation: fadeSlideIn 0.4s ease 0.1s both;
+        }
+        .pub-stat-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 24px; text-align: center;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: transform 0.3s, border-color 0.3s;
+        }
+        .pub-stat-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(249,115,22,0.2);
+        }
+        .pub-stat-card.accent {
+            background: linear-gradient(135deg, rgba(249,115,22,0.12), rgba(251,191,36,0.06));
+            border: 1px solid rgba(249,115,22,0.15);
+        }
+        .pub-stat-card .icon {
+            font-size: 1.5rem; color: #f97316; margin-bottom: 10px; display: block;
+        }
+        .pub-stat-card .label {
+            font-size: 0.6875rem; font-weight: 700;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            color: rgba(255,255,255,0.35); margin-bottom: 6px;
+        }
+        .pub-stat-card .value {
+            font-size: 2rem; font-weight: 600; letter-spacing: -0.02em;
+        }
+        .pub-stat-card .value .unit {
+            font-size: 0.9rem; font-weight: 400; color: rgba(255,255,255,0.5);
+        }
+
+        /* ── Filter bar (uses glass-card + form-control from main CSS) ── */
+        .pub-filter-bar {
+            animation: fadeSlideIn 0.4s ease 0.15s both;
+            margin-bottom: 24px;
+        }
+        .pub-filter-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px; align-items: end;
+        }
+
+        /* ── Project cards ── */
+        .pub-projeto-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            overflow: hidden; margin-bottom: 20px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            animation: fadeSlideIn 0.4s ease both;
+        }
+        .pub-projeto-card:nth-child(2) { animation-delay: 0.06s; }
+        .pub-projeto-card:nth-child(3) { animation-delay: 0.12s; }
+        .pub-projeto-card:nth-child(4) { animation-delay: 0.18s; }
+        .pub-projeto-card:nth-child(5) { animation-delay: 0.24s; }
+
+        .pub-projeto-header {
+            padding: 16px 22px;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            background: rgba(249,115,22,0.04);
+        }
+        .pub-projeto-header .projeto-name {
+            display: flex; align-items: center; gap: 10px;
+            font-weight: 600; font-size: 0.9375rem; color: #f97316;
+        }
+        .pub-projeto-header .projeto-name i { font-size: 1rem; opacity: 0.7; }
+        .pub-projeto-header .projeto-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 12px; border-radius: 9999px;
+            background: rgba(249,115,22,0.12);
+            border: 1px solid rgba(249,115,22,0.18);
+            font-size: 0.75rem; font-weight: 600; color: #f97316;
+        }
+
+        /* ── Entries table (extends data-table from main CSS) ── */
+        .pub-entries-table {
+            width: 100%; border-collapse: collapse;
+        }
+        .pub-entries-table th {
+            padding: 10px 18px; text-align: left;
+            font-size: 0.6875rem; font-weight: 700;
+            letter-spacing: 0.08em; text-transform: uppercase;
+            color: rgba(255,255,255,0.25);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            white-space: nowrap;
+        }
+        .pub-entries-table td {
+            padding: 13px 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            color: rgba(255,255,255,0.7); font-size: 0.875rem;
+            vertical-align: middle;
+        }
+        .pub-entries-table tr:last-child td { border-bottom: none; }
+        .pub-entries-table tbody tr { transition: background 0.15s; }
+        .pub-entries-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+        .pub-entries-table .col-data {
+            white-space: nowrap; font-size: 0.8125rem;
+            color: rgba(255,255,255,0.5);
+        }
+        .pub-entries-table .col-desc { max-width: 400px; line-height: 1.45; }
+        .pub-entries-table .col-horas {
+            white-space: nowrap; font-weight: 600;
+            color: #f97316; text-align: right;
+        }
+
+        /* ── Totals row ── */
+        .pub-total-row td {
+            border-top: 1px solid rgba(249,115,22,0.15) !important;
+            border-bottom: none !important;
+            padding: 14px 18px; font-weight: 600;
+        }
+        .pub-total-row .total-label {
+            color: rgba(255,255,255,0.6); font-size: 0.8125rem;
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .pub-total-row .total-value {
+            color: #f97316; text-align: right; font-size: 1.05rem;
+        }
+
+        /* ── Period tag ── */
+        .period-tag {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 14px; border-radius: 9999px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            font-size: 0.75rem; color: rgba(255,255,255,0.5);
+            font-weight: 500;
+        }
+        .period-tag i { color: rgba(249,115,22,0.6); font-size: 0.8rem; }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center; padding: 80px 20px;
+        }
+        .empty-state i {
+            font-size: 3rem; color: rgba(255,255,255,0.08);
+            margin-bottom: 16px; display: block;
+        }
+        .empty-state h2 {
+            font-size: 1.25rem; font-weight: 600; color: rgba(255,255,255,0.3);
+            margin-bottom: 8px;
+        }
+        .empty-state p { font-size: 0.875rem; color: rgba(255,255,255,0.18); }
+
+        /* ── Loading ── */
+        .pub-loading {
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 16px;
+            padding: 80px 20px; text-align: center;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(249,115,22,0.3); }
+            50% { box-shadow: 0 0 40px rgba(249,115,22,0.6); }
+        }
+        .pub-loading .spinner {
+            width: 48px; height: 48px; border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.06);
+            border-top-color: #f97316;
+            animation: spin-border 0.8s linear infinite, pulse-glow 2s ease-in-out infinite;
+        }
+        .pub-loading span {
+            font-size: 0.875rem; color: rgba(255,255,255,0.3);
+            letter-spacing: 0.05em;
+        }
+
+        /* ── Error state ── */
+        .pub-error-state {
+            text-align: center; padding: 80px 20px;
+        }
+        .pub-error-state i {
+            font-size: 3rem; color: rgba(239,68,68,0.3);
+            margin-bottom: 16px; display: block;
+        }
+        .pub-error-state h2 {
+            font-size: 1.25rem; font-weight: 600; color: rgba(239,68,68,0.7);
+            margin-bottom: 8px;
+        }
+        .pub-error-state p { font-size: 0.875rem; color: rgba(255,255,255,0.3); }
+
+        /* ── Watermark ── */
+        .watermark {
+            text-align: center; padding: 40px 20px 0;
+            font-size: 0.75rem; color: rgba(255,255,255,0.12);
+            letter-spacing: 0.05em;
+        }
+        .watermark .logo-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 9999px;
+        }
+        .watermark .logo-pill i { color: rgba(249,115,22,0.4); }
+        .last-update {
+            text-align: center; margin-top: 8px;
+            font-size: 0.75rem; color: rgba(255,255,255,0.15);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .pub-content { padding: 24px 14px 50px; }
+            .pub-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .pub-stat-card { padding: 16px; }
+            .pub-stat-card .value { font-size: 1.5rem; }
+            .pub-filter-grid { grid-template-columns: 1fr; }
+            .pub-entries-table th, .pub-entries-table td { padding: 10px 12px; }
+            .pub-entries-table .col-desc { max-width: 200px; }
+            .pub-projeto-header { padding: 14px 16px; }
+        }
+    </style>
+</head>
+<body class="bg-[#050505] text-white min-h-screen overflow-x-hidden antialiased">
+
+<!-- ═══ Background: rain canvas (cometas) ═══ -->
+<canvas id="bgRain" class="fixed inset-0 pointer-events-none" style="z-index:1;opacity:0.55"></canvas>
+
+<!-- ═══ Background: image + overlays ═══ -->
+<div class="fixed z-0 top-0 right-0 bottom-0 left-0">
+    <img alt="Background" class="w-full h-full object-cover" style="opacity:0.75;" src="assets/2b5079f4-4ddd-433b-a936-fc8f7d_7da21e998877.webp"/>
+    <div class="absolute inset-0 bg-gradient-to-b from-[#050505]/60 via-[#050505]/20 to-[#050505]/80"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-orange-900/20 via-[#050505]/0 to-[#050505]/0"></div>
+</div>
+
+<!-- ═══ Background: vertical grid lines with falling beams ═══ -->
+<div class="fixed inset-0 z-0 pointer-events-none flex w-full max-w-7xl mx-auto border-r border-white/5 opacity-70">
+    <div class="flex-1 border-l border-white/5 h-full relative overflow-hidden"></div>
+    <div class="flex-1 border-l border-white/5 h-full relative overflow-hidden">
+        <div class="beam-1 absolute top-0 -left-px w-px h-64 bg-gradient-to-b from-transparent via-orange-500/80 to-transparent"></div>
+    </div>
+    <div class="flex-1 border-l border-white/5 h-full flex justify-center relative overflow-hidden">
+        <div class="beam-2 absolute top-0 -left-px w-px h-96 bg-gradient-to-b from-transparent via-orange-500 to-transparent"></div>
+        <div class="h-full border-r border-dashed border-orange-500/20 w-px"></div>
+        <div class="beam-3 absolute top-0 left-1/2 -translate-x-1/2 w-px h-64 bg-gradient-to-b from-transparent via-orange-500/90 to-transparent" style="animation-delay:1.5s"></div>
+    </div>
+    <div class="flex-1 border-l border-white/5 h-full relative overflow-hidden">
+        <div class="beam-1 absolute top-0 -left-px w-px h-48 bg-gradient-to-b from-transparent via-orange-500/70 to-transparent" style="animation-delay:3s"></div>
+    </div>
+    <div class="flex-1 border-l border-white/5 h-full relative overflow-hidden"></div>
+</div>
+
+<!-- ═══ Content ═══ -->
+<div class="pub-content">
+
+    <!-- Header -->
+    <header class="pub-header" id="pageHeader">
+        <div class="pub-header-badge">
+            <span class="dot"></span>
+            <span>Acompanhamento de Horas</span>
+        </div>
+        <h1 id="headerTitle">Carregando...</h1>
+        <p class="subtitle" id="headerSubtitle"></p>
+    </header>
+
+    <!-- Loading state -->
+    <div id="loadingState" class="pub-loading">
+        <div class="spinner"></div>
+        <span>Carregando dados do dashboard...</span>
+    </div>
+
+    <!-- Error state (hidden) -->
+    <div id="errorState" class="pub-error-state" style="display:none;"></div>
+
+    <!-- Dashboard content (hidden initially) -->
+    <div id="dashboardContent" style="display:none;">
+
+        <!-- Stats -->
+        <div class="pub-stats" id="statsCards"></div>
+
+        <!-- Filter -->
+        <div class="glass-card pub-filter-bar">
+            <div class="card-header"><i class="bi bi-funnel mr-2 text-orange-500/70"></i>Filtros</div>
+            <div class="p-5">
+                <div class="pub-filter-grid">
+                    <div>
+                        <label class="form-label" for="filtroProjeto">Projeto</label>
+                        <select class="form-control" id="filtroProjeto">
+                            <option value="">Todos os projetos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" for="filtroDataInicio">Data Início</label>
+                        <input type="date" class="form-control" id="filtroDataInicio">
+                    </div>
+                    <div>
+                        <label class="form-label" for="filtroDataFim">Data Fim</label>
+                        <input type="date" class="form-control" id="filtroDataFim">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Project cards container -->
+        <div id="projetosContainer"></div>
+
+        <!-- Watermark -->
+        <div class="watermark">
+            <div class="logo-pill">
+                <i class="bi bi-clock-fill"></i>
+                <span>Controle de Horas</span>
+            </div>
+        </div>
+        <div class="last-update" id="lastUpdate"></div>
+    </div>
+</div>
+
+<!-- Tailwind CDN (Play) — same as main page -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Flatpickr JS + PT locale -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+
+<!-- ═══ Flatpickr init ═══ -->
+<script>
+(function () {
+    var IDS = ['filtroDataInicio', 'filtroDataFim'];
+    window.fpInstances = {};
+    IDS.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        window.fpInstances[id] = flatpickr(el, {
+            locale:        flatpickr.l10ns.pt,
+            dateFormat:    'Y-m-d',
+            altInput:      true,
+            altFormat:     'd/m/Y',
+            disableMobile: true,
+            onChange: function () {
+                // Trigger filter on date change
+                if (typeof applyFilters === 'function') applyFilters();
+            }
+        });
+    });
+}());
+</script>
+
+<!-- ═══ Custom Select (portal-based, same as main page) ═══ -->
+<script>
+(function () {
+    'use strict';
+
+    var portal    = document.createElement('div');
+    portal.className = 'custom-select-dropdown';
+    document.body.appendChild(portal);
+
+    var activeSelect  = null;
+    var activeTrigger = null;
+
+    function makeChevron() {
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'custom-select-chevron');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+        var poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        poly.setAttribute('points', '6 9 12 15 18 9');
+        svg.appendChild(poly);
+        return svg;
+    }
+
+    function positionPortal(trigger) {
+        var rect = trigger.getBoundingClientRect();
+        var spaceBelow = window.innerHeight - rect.bottom;
+        var spaceAbove = rect.top;
+        var openUp = spaceBelow < 200 && spaceAbove > spaceBelow;
+
+        portal.style.minWidth = rect.width + 'px';
+        portal.style.left     = rect.left + 'px';
+
+        if (openUp) {
+            portal.style.bottom = (window.innerHeight - rect.top) + 'px';
+            portal.style.top    = 'auto';
+        } else {
+            portal.style.top    = (rect.bottom + 6) + 'px';
+            portal.style.bottom = 'auto';
+        }
+    }
+
+    function rebuildPortal(nativeSelect) {
+        portal.innerHTML = '';
+        Array.from(nativeSelect.options).forEach(function (opt) {
+            var item = document.createElement('div');
+            item.className = 'custom-select-option';
+            if (opt.value === nativeSelect.value) item.classList.add('active');
+            item.textContent = opt.textContent;
+            item.addEventListener('mousedown', function (e) { e.preventDefault(); });
+            item.addEventListener('click', function () {
+                nativeSelect.value = opt.value;
+                nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                closePortal();
+            });
+            portal.appendChild(item);
+        });
+    }
+
+    function openPortal(nativeSelect, trigger) {
+        if (activeTrigger) activeTrigger.classList.remove('open');
+        activeSelect  = nativeSelect;
+        activeTrigger = trigger;
+        rebuildPortal(nativeSelect);
+        positionPortal(trigger);
+        portal.classList.add('open');
+        trigger.classList.add('open');
+    }
+
+    function closePortal() {
+        portal.classList.remove('open');
+        if (activeTrigger) activeTrigger.classList.remove('open');
+        activeSelect  = null;
+        activeTrigger = null;
+    }
+
+    document.addEventListener('click', function (e) {
+        if (!portal.contains(e.target)) closePortal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closePortal();
+    });
+    window.addEventListener('scroll', function () {
+        if (activeTrigger) positionPortal(activeTrigger);
+    }, true);
+    window.addEventListener('resize', function () {
+        if (activeTrigger) positionPortal(activeTrigger);
+    });
+
+    function buildCustomSelect(nativeSelect) {
+        if (nativeSelect.closest('.custom-select-wrapper')) return;
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'custom-select-wrapper';
+
+        var trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'form-control custom-select-trigger';
+
+        var valueSpan = document.createElement('span');
+        valueSpan.className = 'custom-select-value';
+        trigger.appendChild(valueSpan);
+        trigger.appendChild(makeChevron());
+
+        nativeSelect.parentNode.insertBefore(wrapper, nativeSelect);
+        wrapper.appendChild(nativeSelect);
+        wrapper.appendChild(trigger);
+
+        nativeSelect.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;opacity:0;pointer-events:none;overflow:hidden;';
+
+        function updateTrigger() {
+            var opt = nativeSelect.options[nativeSelect.selectedIndex];
+            valueSpan.textContent = opt ? opt.textContent : '';
+            valueSpan.style.color = (opt && opt.value !== '') ? '' : 'rgba(255,255,255,0.35)';
+            if (activeSelect === nativeSelect && portal.classList.contains('open')) {
+                rebuildPortal(nativeSelect);
+            }
+        }
+
+        trigger.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (activeSelect === nativeSelect && portal.classList.contains('open')) {
+                closePortal();
+            } else {
+                openPortal(nativeSelect, trigger);
+            }
+        });
+
+        nativeSelect.addEventListener('change', updateTrigger);
+
+        new MutationObserver(function () {
+            updateTrigger();
+        }).observe(nativeSelect, { childList: true, subtree: true });
+
+        updateTrigger();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(function () {
+            document.querySelectorAll('select.form-control').forEach(buildCustomSelect);
+        }, 0);
+    });
+}());
+</script>
+
+<!-- ═══ Rain canvas (cometas) — idêntico à página principal ═══ -->
+<script>
+(function () {
+    var canvas = document.getElementById('bgRain');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+
+    var dx =  0.82;
+    var dy =  0.57;
+
+    var NUM = 55;
+    var meteors = [];
+
+    function W() { return canvas.width;  }
+    function H() { return canvas.height; }
+
+    function resize() {
+        canvas.width  = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function spawnMeteor() {
+        var edge = Math.random();
+        var x, y;
+        if (edge < 0.65) {
+            x = -W() * 0.2 + Math.random() * W() * 1.0;
+            y = -20 - Math.random() * H() * 0.3;
+        } else {
+            x = -Math.random() * W() * 0.25;
+            y = Math.random() * H() * 0.6;
+        }
+        var maxLife = 110 + Math.random() * 130;
+        return {
+            x:       x,
+            y:       y,
+            len:     130 + Math.random() * 320,
+            speed:   4   + Math.random() * 8,
+            maxAlpha: 0.25 + Math.random() * 0.45,
+            width:   0.6 + Math.random() * 1.4,
+            life:    0,
+            maxLife: maxLife
+        };
+    }
+
+    for (var i = 0; i < NUM; i++) {
+        var m = spawnMeteor();
+        var t = Math.random();
+        m.x   += dx * t * W() * 1.4;
+        m.y   += dy * t * H() * 1.4;
+        m.life = Math.floor(t * m.maxLife);
+        meteors.push(m);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, W(), H());
+
+        for (var i = 0; i < meteors.length; i++) {
+            var m = meteors[i];
+
+            var lifeRatio = m.life / m.maxLife;
+            var timeFade  = Math.sin(Math.PI * lifeRatio);
+            var alpha     = m.maxAlpha * timeFade;
+
+            if (alpha > 0.008) {
+                var tailX = m.x - dx * m.len;
+                var tailY = m.y - dy * m.len;
+
+                var grad = ctx.createLinearGradient(tailX, tailY, m.x, m.y);
+                grad.addColorStop(0,    'rgba(255,255,255,0)');
+                grad.addColorStop(0.55, 'rgba(255,200,140,' + (alpha * 0.35) + ')');
+                grad.addColorStop(0.82, 'rgba(255,255,255,' + alpha + ')');
+                grad.addColorStop(1,    'rgba(255,255,255,' + (alpha * 0.55) + ')');
+
+                ctx.beginPath();
+                ctx.moveTo(tailX, tailY);
+                ctx.lineTo(m.x, m.y);
+                ctx.strokeStyle = grad;
+                ctx.lineWidth   = m.width;
+                ctx.lineCap     = 'round';
+                ctx.stroke();
+
+                var glow = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.width * 4);
+                glow.addColorStop(0, 'rgba(255,210,160,' + (alpha * 0.65) + ')');
+                glow.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, m.width * 4, 0, Math.PI * 2);
+                ctx.fillStyle = glow;
+                ctx.fill();
+            }
+
+            m.x += dx * m.speed;
+            m.y += dy * m.speed;
+            m.life++;
+
+            if (m.life >= m.maxLife || m.x - m.len > W() + 50 || m.y - m.len > H() + 50) {
+                meteors[i] = spawnMeteor();
+            }
+        }
+        requestAnimationFrame(draw);
+    }
+    draw();
+}());
+</script>
+
+<!-- ═══ Dashboard logic ═══ -->
+<script>
+(function () {
+    'use strict';
+
+    const API_BASE = '/api/public';
+    let dadosDashboard = null;
+
+    const params = new URLSearchParams(window.location.search);
+    const clienteId = params.get('cliente');
+
+    if (!clienteId) {
+        showError('Link Inválido', 'Este link não contém um identificador de cliente válido.');
+        return;
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '—';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString('pt-BR');
+        }
+        return new Date(dateStr).toLocaleDateString('pt-BR');
+    }
+
+    function formatHours(h) {
+        if (!h && h !== 0) return '0h';
+        const hours = Math.floor(h);
+        const mins = Math.round((h - hours) * 60);
+        return mins > 0 ? `${hours}h${String(mins).padStart(2, '0')}` : `${hours}h`;
+    }
+
+    function showError(title, msg) {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('dashboardContent').style.display = 'none';
+        const el = document.getElementById('errorState');
+        el.style.display = 'block';
+        el.innerHTML = `
+            <i class="bi bi-exclamation-triangle"></i>
+            <h2>${title}</h2>
+            <p>${msg}</p>`;
+        document.getElementById('headerTitle').textContent = 'Erro';
+        document.getElementById('headerSubtitle').textContent = '';
+    }
+
+    function showEmpty() {
+        document.getElementById('projetosContainer').innerHTML = `
+            <div class="empty-state">
+                <i class="bi bi-inbox"></i>
+                <h2>Nenhum lançamento encontrado</h2>
+                <p>Não existem horas registradas para os filtros selecionados.</p>
+            </div>`;
+    }
+
+    function renderStats(filteredData) {
+        const { totalHoras, totalProjetos, totalLancamentos } = filteredData;
+        document.getElementById('statsCards').innerHTML = `
+            <div class="pub-stat-card accent">
+                <i class="bi bi-clock-fill icon"></i>
+                <div class="label">Total de Horas</div>
+                <div class="value">${totalHoras.toFixed(1)} <span class="unit">horas</span></div>
+            </div>
+            <div class="pub-stat-card">
+                <i class="bi bi-folder-fill icon"></i>
+                <div class="label">Projetos Ativos</div>
+                <div class="value">${totalProjetos}</div>
+            </div>
+            <div class="pub-stat-card">
+                <i class="bi bi-list-check icon"></i>
+                <div class="label">Lançamentos</div>
+                <div class="value">${totalLancamentos}</div>
+            </div>`;
+    }
+
+    function renderFilters(data) {
+        const select = document.getElementById('filtroProjeto');
+        select.innerHTML = '<option value="">Todos os projetos</option>';
+        data.projetos.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.projeto;
+            select.appendChild(opt);
+        });
+
+        const fp = window.fpInstances || {};
+        const set = (id, val) => fp[id] ? fp[id].setDate(val, true) : (document.getElementById(id).value = val);
+
+        const hoje = new Date();
+        const offset = hoje.getDate() > 17 ? 1 : 0;
+        const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1 + offset, 18);
+        const fim    = new Date(hoje.getFullYear(), hoje.getMonth() + offset, 17);
+        set('filtroDataInicio', inicio.toISOString().split('T')[0]);
+        set('filtroDataFim', fim.toISOString().split('T')[0]);
+    }
+
+    function getFilterValues() {
+        const projetoFilter = document.getElementById('filtroProjeto').value;
+        const fp = window.fpInstances || {};
+        const dataInicio = fp.filtroDataInicio ? fp.filtroDataInicio.input.value : document.getElementById('filtroDataInicio').value;
+        const dataFim = fp.filtroDataFim ? fp.filtroDataFim.input.value : document.getElementById('filtroDataFim').value;
+        return { projetoFilter, dataInicio, dataFim };
+    }
+
+    function renderProjetos(data) {
+        const { projetoFilter, dataInicio, dataFim } = getFilterValues();
+
+        let projetos = data.projetos;
+        if (projetoFilter) {
+            projetos = projetos.filter(p => p.id === projetoFilter);
+        }
+
+        projetos = projetos.map(p => {
+            let lancs = p.lancamentos;
+            if (dataInicio) lancs = lancs.filter(l => l.data >= dataInicio);
+            if (dataFim)    lancs = lancs.filter(l => l.data <= dataFim);
+            const totalHoras = lancs.reduce((acc, l) => acc + (l.horas || 0), 0);
+            return { ...p, lancamentos: lancs, totalHoras };
+        }).filter(p => p.lancamentos.length > 0);
+
+        const filteredTotalHoras = projetos.reduce((acc, p) => acc + p.totalHoras, 0);
+        const filteredTotalLancs = projetos.reduce((acc, p) => acc + p.lancamentos.length, 0);
+
+        renderStats({
+            totalHoras: filteredTotalHoras,
+            totalProjetos: projetos.length,
+            totalLancamentos: filteredTotalLancs
+        });
+
+        const container = document.getElementById('projetosContainer');
+
+        if (projetos.length === 0) {
+            showEmpty();
+            return;
+        }
+
+        let periodHtml = '';
+        if (dataInicio || dataFim) {
+            const from = dataInicio ? formatDate(dataInicio) : 'início';
+            const to = dataFim ? formatDate(dataFim) : 'hoje';
+            periodHtml = `
+                <div style="text-align:center;margin-bottom:20px;">
+                    <span class="period-tag">
+                        <i class="bi bi-calendar-range"></i>
+                        Período: ${from} — ${to}
+                    </span>
+                </div>`;
+        }
+
+        let html = periodHtml;
+
+        projetos.forEach(p => {
+            const lancs = [...p.lancamentos].sort((a, b) => b.data.localeCompare(a.data));
+            html += `
+            <div class="pub-projeto-card">
+                <div class="pub-projeto-header">
+                    <div class="projeto-name">
+                        <i class="bi bi-folder2-open"></i>
+                        ${escapeHtml(p.projeto)}
+                    </div>
+                    <div class="projeto-badge">
+                        <i class="bi bi-clock"></i>
+                        ${formatHours(p.totalHoras)} (${p.totalHoras.toFixed(1)}h)
+                    </div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="pub-entries-table">
+                        <thead>
+                            <tr>
+                                <th style="width:120px;">Data</th>
+                                <th>Descrição</th>
+                                <th style="width:100px;text-align:right;">Horas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${lancs.map(l => `
+                                <tr>
+                                    <td class="col-data">${formatDate(l.data)}</td>
+                                    <td class="col-desc">${escapeHtml(l.descricao) || '<span style="color:rgba(255,255,255,0.2)">—</span>'}</td>
+                                    <td class="col-horas">${formatHours(l.horas)}</td>
+                                </tr>
+                            `).join('')}
+                            <tr class="pub-total-row">
+                                <td class="total-label" colspan="2">Total do Projeto</td>
+                                <td class="total-value">${formatHours(p.totalHoras)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Global filter function (also called by Flatpickr onChange)
+    window.applyFilters = function () {
+        if (!dadosDashboard) return;
+        renderProjetos(dadosDashboard);
+    };
+
+    document.getElementById('filtroProjeto').addEventListener('change', window.applyFilters);
+
+    async function loadDashboard() {
+        try {
+            const response = await fetch(`${API_BASE}/dashboard/${encodeURIComponent(clienteId)}`);
+            
+            if (response.status === 404) {
+                showError('Cliente Não Encontrado', 'O identificador do cliente informado não existe no sistema.');
+                return;
+            }
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            dadosDashboard = await response.json();
+
+            document.title = `Horas — ${dadosDashboard.cliente}`;
+            document.getElementById('headerTitle').textContent = dadosDashboard.cliente;
+            document.getElementById('headerSubtitle').innerHTML = 'Acompanhamento de horas lançadas';
+
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('dashboardContent').style.display = 'block';
+
+            renderFilters(dadosDashboard);
+            renderProjetos(dadosDashboard);
+
+            document.getElementById('lastUpdate').textContent =
+                `Última consulta: ${new Date().toLocaleString('pt-BR')}`;
+
+        } catch (err) {
+            console.error(err);
+            showError('Erro ao Carregar', 'Não foi possível carregar os dados do dashboard. Tente novamente mais tarde.');
+        }
+    }
+
+    loadDashboard();
+})();
+</script>
+</body>
+</html>

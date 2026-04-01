@@ -71,9 +71,90 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
+// ═══ ROTA PÚBLICA — Dashboard do Cliente (sem autenticação) ═══
+app.get('/api/public/dashboard/:clienteId', async (req, res) => {
+    try {
+        const { clienteId } = req.params;
+        
+        // Busca o cliente
+        const clienteResult = await pool.query(
+            'SELECT "id", "nome" FROM clientes WHERE "id" = $1',
+            [clienteId]
+        );
+        if (clienteResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+        const cliente = clienteResult.rows[0];
+
+        // Busca projetos do cliente
+        const projetosResult = await pool.query(
+            'SELECT "id", "nome" FROM projetos WHERE "clienteId" = $1',
+            [clienteId]
+        );
+        const projetos = projetosResult.rows;
+        const projetoIds = projetos.map(p => p.id);
+
+        // Busca lançamentos dos projetos do cliente
+        let lancamentos = [];
+        if (projetoIds.length > 0) {
+            const placeholders = projetoIds.map((_, i) => `$${i + 1}`).join(',');
+            const lancResult = await pool.query(
+                `SELECT "id", "projetoId", "data", "duracao", "descricao" 
+                 FROM lancamentos 
+                 WHERE "projetoId" IN (${placeholders})
+                 ORDER BY "data" DESC`,
+                projetoIds
+            );
+            lancamentos = lancResult.rows;
+        }
+
+        // Monta resposta agrupada
+        const projetosComLancamentos = projetos.map(p => {
+            const lancs = lancamentos.filter(l => l.projetoId === p.id);
+            const totalHoras = lancs.reduce((acc, l) => acc + (l.duracao || 0), 0);
+            // Sufixo do projeto: pega a parte depois do último " - " ou retorna o nome inteiro
+            const partes = p.nome.split(' - ');
+            const sufixo = partes.length > 1 ? partes.slice(1).join(' - ').trim() : p.nome;
+            return {
+                id: p.id,
+                projeto: sufixo,
+                totalHoras,
+                lancamentos: lancs.map(l => ({
+                    data: l.data,
+                    descricao: l.descricao || '',
+                    horas: l.duracao || 0
+                }))
+            };
+        }).filter(p => p.lancamentos.length > 0);
+
+        const totalGeralHoras = projetosComLancamentos.reduce((acc, p) => acc + p.totalHoras, 0);
+
+        res.json({
+            cliente: cliente.nome,
+            totalHoras: totalGeralHoras,
+            totalProjetos: projetosComLancamentos.length,
+            totalLancamentos: lancamentos.length,
+            projetos: projetosComLancamentos
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ═══ ROTA PÚBLICA — Lista de clientes para gerar links ═══
+app.get('/api/public/clientes-lista', async (req, res) => {
+    try {
+        const { rows } = await pool.query('SELECT "id", "nome" FROM clientes ORDER BY "nome"');
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Interceptor de Segurança: Bloqueia Requests Sem o Token e Injeta o ID do Usuário Ativo
 app.use('/api', (req, res, next) => {
     if (req.path === '/login' || req.path === '/register') return next();
+    if (req.path.startsWith('/public/')) return next();
     
     const token = req.headers.authorization && req.headers.authorization.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Sessão requerida' });
