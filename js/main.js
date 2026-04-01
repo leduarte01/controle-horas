@@ -5,12 +5,12 @@
 
 // ── Section navigation ──
 function navegarPara(secao) {
-    // Hide all page sections
-    document.querySelectorAll('.page-section').forEach(s => s.classList.add('hidden'));
+    // Hide all page sections (remove active-section)
+    document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active-section'));
 
     // Show target section
     const target = document.getElementById(`section-${secao}`);
-    if (target) target.classList.remove('hidden');
+    if (target) target.classList.add('active-section');
 
     // Update sidebar active state
     document.querySelectorAll('.nav-item').forEach(btn => {

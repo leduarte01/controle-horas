@@ -176,70 +176,40 @@
                 </div>
             </div>
 
-            <!-- Filters -->
-            <div class="glass-card mb-5">
-                <div class="card-header"><i class="bi bi-funnel mr-2 text-orange-500/70"></i>Filtros de Lançamentos</div>
-                <div class="p-5">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <div>
-                            <label class="form-label" for="filtroClienteDashboard">Cliente</label>
-                            <select class="form-control" id="filtroClienteDashboard"><option value="">Todos os clientes</option></select>
+            <!-- Atalhos rápidos -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <button onclick="navegarPara('lancamento')" class="glass-card p-6 text-left hover:border-orange-500/30 transition-colors cursor-pointer group">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500/20 to-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="bi bi-plus-circle text-orange-500"></i>
                         </div>
-                        <div>
-                            <label class="form-label" for="filtroProjetoDashboard">Projeto</label>
-                            <select class="form-control" id="filtroProjetoDashboard"><option value="">Todos os projetos</option></select>
-                        </div>
-                        <div>
-                            <label class="form-label" for="dataInicioDashboard">Data Início</label>
-                            <input type="date" class="form-control" id="dataInicioDashboard">
-                        </div>
-                        <div>
-                            <label class="form-label" for="dataFimDashboard">Data Fim</label>
-                            <input type="date" class="form-control" id="dataFimDashboard">
-                        </div>
-                        <div class="flex items-end gap-2">
-                            <button type="button" class="btn-primary w-full" onclick="controleHoras.aplicarFiltrosDashboard()">
-                                <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
-                                <i class="bi bi-search mr-1"></i><span class="btn-label">Filtrar</span>
-                            </button>
-                        </div>
+                        <span class="font-semibold text-white/90">Lançar Horas</span>
                     </div>
-                </div>
-                </div>
-            </div>
-
-            <!-- Dashboard Data Split -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <!-- Horas por Atividade Chart -->
-                <div class="glass-card lg:col-span-1">
-                    <div class="card-header"><i class="bi bi-pie-chart mr-2 text-orange-500/70"></i>Horas por Atividade</div>
-                    <div class="p-5 flex justify-center items-center" style="height: 350px;">
-                        <canvas id="atividadeChartMain"></canvas>
-                    </div>
-                </div>
-
-                <!-- Lançamentos list -->
-                <div class="glass-card lg:col-span-2">
-                    <div class="card-header" style="justify-content:space-between;">
-                        <span>
-                            <i class="bi bi-clock-history mr-2 text-orange-500/70"></i>Lançamentos Filtrados
-                            <span id="contadorLancamentos" class="text-neutral-500 text-xs font-normal ml-1"></span>
-                        </span>
-                        <button class="btn-ghost" style="padding:6px 12px;font-size:0.8125rem;" onclick="controleHoras.limparFiltrosDashboard()">
-                            <i class="bi bi-x-lg mr-1"></i>Limpar
-                        </button>
-                    </div>
-                    <div class="p-2 overflow-auto" style="max-height: 350px;">
-                        <div id="ultimosLancamentos">
-                            <p class="text-neutral-500 text-center py-10 text-sm">Nenhum lançamento encontrado</p>
+                    <p class="text-xs text-neutral-500">Registre suas horas de trabalho rapidamente</p>
+                </button>
+                <button onclick="navegarPara('relatorios')" class="glass-card p-6 text-left hover:border-orange-500/30 transition-colors cursor-pointer group">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500/20 to-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="bi bi-graph-up text-orange-500"></i>
                         </div>
+                        <span class="font-semibold text-white/90">Relatórios</span>
                     </div>
-                </div>
+                    <p class="text-xs text-neutral-500">Visualize e exporte relatórios detalhados</p>
+                </button>
+                <button onclick="navegarPara('kanban')" class="glass-card p-6 text-left hover:border-orange-500/30 transition-colors cursor-pointer group">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500/20 to-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="bi bi-kanban text-orange-500"></i>
+                        </div>
+                        <span class="font-semibold text-white/90">Kanban</span>
+                    </div>
+                    <p class="text-xs text-neutral-500">Gerencie tarefas e projetos visualmente</p>
+                </button>
             </div>
         </section>
 
         <!-- ══ Clientes ══ -->
-        <section id="section-clientes" class="page-section hidden">
+        <section id="section-clientes" class="page-section">
             <div class="mb-8">
                 <div class="inline-flex items-center gap-2 mb-3">
                     <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
@@ -299,7 +269,7 @@
         </section>
 
         <!-- ══ Projetos ══ -->
-        <section id="section-projetos" class="page-section hidden">
+        <section id="section-projetos" class="page-section">
             <div class="mb-8">
                 <div class="inline-flex items-center gap-2 mb-3">
                     <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
@@ -360,7 +330,7 @@
         </section>
 
         <!-- ══ Lançamento ══ -->
-        <section id="section-lancamento" class="page-section hidden">
+        <section id="section-lancamento" class="page-section">
             <div class="mb-8">
                 <div class="inline-flex items-center gap-2 mb-3">
                     <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
@@ -424,7 +394,7 @@
         </section>
 
         <!-- ══ Relatórios ══ -->
-        <section id="section-relatorios" class="page-section hidden">
+        <section id="section-relatorios" class="page-section">
             <div class="mb-8">
                 <div class="inline-flex items-center gap-2 mb-3">
                     <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
@@ -502,7 +472,7 @@
         </section>
 
         <!-- ══ Kanban ══ -->
-        <section id="section-kanban" class="page-section hidden">
+        <section id="section-kanban" class="page-section">
             <div class="mb-8">
                 <div class="inline-flex items-center gap-2 mb-3">
                     <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
@@ -808,7 +778,7 @@
 <!-- Flatpickr init – runs before DOMContentLoaded handlers, fpInstances ready for app code -->
 <script>
 (function () {
-    var IDS = ['dataLancamento', 'dataInicio', 'dataFim', 'dataInicioDashboard', 'dataFimDashboard'];
+    var IDS = ['dataLancamento', 'dataInicio', 'dataFim'];
     window.fpInstances = {};
     IDS.forEach(function (id) {
         var el = document.getElementById(id);

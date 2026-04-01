@@ -59,8 +59,6 @@ class ControleHoras {
 
         document.getElementById('filtroCliente').addEventListener('change',
             () => this.atualizarFiltrosProjeto());
-        document.getElementById('filtroClienteDashboard').addEventListener('change',
-            () => this.atualizarFiltrosProjetoDashboard());
     }
     calcularPeriodoVigente(diaFechamento) {
         let dia = parseInt(diaFechamento) || 17;
@@ -88,7 +86,5 @@ class ControleHoras {
         
         set('dataInicio',         periodo.inicio);
         set('dataFim',            periodo.fim);
-        set('dataInicioDashboard', periodo.inicio);
-        set('dataFimDashboard',    periodo.fim);
     }
 }
