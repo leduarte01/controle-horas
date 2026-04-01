@@ -299,9 +299,9 @@ Object.assign(ControleHoras.prototype, {
     _colunaDragItem: null,
 
     _criarColunaEditorItem(valor, placeholder) {
+        const self = this;
         const div = document.createElement('div');
         div.className = 'coluna-editor-item';
-        div.setAttribute('draggable', 'true');
         div.innerHTML = `
             <span class="coluna-drag-handle"><i class="bi bi-grip-vertical"></i></span>
             <input type="text" class="form-control coluna-input" value="${valor ? this.escapeHtml(valor) : ''}" placeholder="${placeholder || ''}" style="flex:1;">
@@ -309,53 +309,61 @@ Object.assign(ControleHoras.prototype, {
                 <i class="bi bi-trash"></i>
             </button>`;
 
-        // Drag only from handle
         const handle = div.querySelector('.coluna-drag-handle');
+
+        // Only enable drag when pressing the handle
+        handle.addEventListener('mousedown', () => {
+            div.setAttribute('draggable', 'true');
+        });
+
+        // Disable drag after release so inputs/buttons work normally
+        document.addEventListener('mouseup', function onUp() {
+            div.setAttribute('draggable', 'false');
+        });
+
         div.addEventListener('dragstart', (e) => {
-            if (!e.target.closest('.coluna-drag-handle') && e.target !== handle) {
-                e.preventDefault();
-                return;
-            }
-            this._colunaDragItem = div;
+            self._colunaDragItem = div;
             div.classList.add('coluna-dragging');
             e.dataTransfer.effectAllowed = 'move';
+            // Need a small timeout so the browser renders the drag ghost
+            setTimeout(() => { div.style.opacity = '0.4'; }, 0);
         });
+
         div.addEventListener('dragend', () => {
             div.classList.remove('coluna-dragging');
-            this._colunaDragItem = null;
-            // Remove any remaining drag-over styles
-            document.querySelectorAll('.coluna-editor-item.coluna-drag-over').forEach(el => el.classList.remove('coluna-drag-over'));
+            div.style.opacity = '';
+            div.setAttribute('draggable', 'false');
+            self._colunaDragItem = null;
+            document.querySelectorAll('.coluna-editor-item.coluna-drag-over')
+                .forEach(el => el.classList.remove('coluna-drag-over'));
         });
+
         div.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            if (this._colunaDragItem && this._colunaDragItem !== div) {
+            if (self._colunaDragItem && self._colunaDragItem !== div) {
                 div.classList.add('coluna-drag-over');
             }
         });
+
         div.addEventListener('dragleave', () => {
             div.classList.remove('coluna-drag-over');
         });
+
         div.addEventListener('drop', (e) => {
             e.preventDefault();
             div.classList.remove('coluna-drag-over');
-            if (!this._colunaDragItem || this._colunaDragItem === div) return;
+            if (!self._colunaDragItem || self._colunaDragItem === div) return;
             const container = document.getElementById('colunasEditor');
             const items = [...container.querySelectorAll('.coluna-editor-item')];
-            const fromIdx = items.indexOf(this._colunaDragItem);
+            const fromIdx = items.indexOf(self._colunaDragItem);
             const toIdx = items.indexOf(div);
             if (fromIdx < toIdx) {
-                div.after(this._colunaDragItem);
+                div.after(self._colunaDragItem);
             } else {
-                div.before(this._colunaDragItem);
+                div.before(self._colunaDragItem);
             }
         });
-
-        // Prevent drag when clicking inside the input
-        const input = div.querySelector('input');
-        input.addEventListener('mousedown', () => { div.setAttribute('draggable', 'false'); });
-        input.addEventListener('mouseup',   () => { div.setAttribute('draggable', 'true'); });
-        input.addEventListener('blur',      () => { div.setAttribute('draggable', 'true'); });
 
         return div;
     },
