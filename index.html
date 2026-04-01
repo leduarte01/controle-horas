@@ -18,6 +18,9 @@
     <!-- Flatpickr datepicker -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <!-- Custom styles -->
     <link rel="stylesheet" href="css/styles.css">
 
@@ -198,22 +201,34 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
 
-            <!-- Lançamentos list -->
-            <div class="glass-card">
-                <div class="card-header" style="justify-content:space-between;">
-                    <span>
-                        <i class="bi bi-clock-history mr-2 text-orange-500/70"></i>Lançamentos
-                        <span id="contadorLancamentos" class="text-neutral-500 text-xs font-normal ml-1"></span>
-                    </span>
-                    <button class="btn-ghost" style="padding:6px 12px;font-size:0.8125rem;" onclick="controleHoras.limparFiltrosDashboard()">
-                        <i class="bi bi-x-lg mr-1"></i>Limpar
-                    </button>
+            <!-- Dashboard Data Split -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <!-- Horas por Atividade Chart -->
+                <div class="glass-card lg:col-span-1">
+                    <div class="card-header"><i class="bi bi-pie-chart mr-2 text-orange-500/70"></i>Horas por Atividade</div>
+                    <div class="p-5 flex justify-center items-center" style="height: 350px;">
+                        <canvas id="atividadeChartMain"></canvas>
+                    </div>
                 </div>
-                <div class="p-2 overflow-auto">
-                    <div id="ultimosLancamentos">
-                        <p class="text-neutral-500 text-center py-10 text-sm">Nenhum lançamento encontrado</p>
+
+                <!-- Lançamentos list -->
+                <div class="glass-card lg:col-span-2">
+                    <div class="card-header" style="justify-content:space-between;">
+                        <span>
+                            <i class="bi bi-clock-history mr-2 text-orange-500/70"></i>Lançamentos Filtrados
+                            <span id="contadorLancamentos" class="text-neutral-500 text-xs font-normal ml-1"></span>
+                        </span>
+                        <button class="btn-ghost" style="padding:6px 12px;font-size:0.8125rem;" onclick="controleHoras.limparFiltrosDashboard()">
+                            <i class="bi bi-x-lg mr-1"></i>Limpar
+                        </button>
+                    </div>
+                    <div class="p-2 overflow-auto" style="max-height: 350px;">
+                        <div id="ultimosLancamentos">
+                            <p class="text-neutral-500 text-center py-10 text-sm">Nenhum lançamento encontrado</p>
+                        </div>
                     </div>
                 </div>
             </div>

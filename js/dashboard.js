@@ -31,6 +31,60 @@ Object.assign(ControleHoras.prototype, {
         const n = lista.length;
         contador.textContent = `(${n} ${n === 1 ? 'registro' : 'registros'})`;
 
+        // Agrupa por atividade para o grafico de pizza
+        const horasPorAtiv = {};
+        lista.forEach(l => {
+            const ativ = l.atividade || 'Outros';
+            horasPorAtiv[ativ] = (horasPorAtiv[ativ] || 0) + (l.duracao || 0);
+        });
+
+        if (window.atividadeChartMainInstance) {
+            window.atividadeChartMainInstance.destroy();
+        }
+
+        const canvas = document.getElementById('atividadeChartMain');
+        if (canvas) {
+            if (n === 0) {
+                // Remove o canvas se não houver dados, ou deixa vazio
+                canvas.style.display = 'none';
+            } else {
+                canvas.style.display = 'block';
+                const ctx = canvas.getContext('2d');
+                window.atividadeChartMainInstance = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: Object.keys(horasPorAtiv),
+                        datasets: [{
+                            data: Object.values(horasPorAtiv),
+                            backgroundColor: [
+                                '#f97316', '#fb923c', '#fdba74', '#fed7aa', '#ffedd5',
+                                '#ea580c', '#c2410c', '#9a3412', '#7c2d12', '#431407'
+                            ],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: 'rgba(255, 255, 255, 0.7)', font: { family: 'Inter', size: 11 } }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return ' ' + context.label + ': ' + context.parsed.toFixed(1) + 'h';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
         if (n === 0) {
             container.innerHTML = '<p class="text-neutral-500 text-center py-10 text-sm">Nenhum lançamento encontrado</p>';
             return;
