@@ -750,10 +750,13 @@
         const fp = window.fpInstances || {};
         const set = (id, val) => fp[id] ? fp[id].setDate(val, true) : (document.getElementById(id).value = val);
 
+        const diaFechamento = data.diaFechamento || 17;
         const hoje = new Date();
-        const offset = hoje.getDate() > 17 ? 1 : 0;
-        const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1 + offset, 18);
-        const fim    = new Date(hoje.getFullYear(), hoje.getMonth() + offset, 17);
+        const offset = hoje.getDate() > diaFechamento ? 1 : 0;
+        
+        const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1 + offset, diaFechamento + 1);
+        const fim    = new Date(hoje.getFullYear(), hoje.getMonth() + offset, diaFechamento);
+        
         set('filtroDataInicio', inicio.toISOString().split('T')[0]);
         set('filtroDataFim', fim.toISOString().split('T')[0]);
     }

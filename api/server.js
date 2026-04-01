@@ -78,7 +78,7 @@ app.get('/api/public/dashboard/:clienteId', async (req, res) => {
         
         // Busca o cliente
         const clienteResult = await pool.query(
-            'SELECT "id", "nome" FROM clientes WHERE "id" = $1',
+            'SELECT "id", "nome", "diaFechamento" FROM clientes WHERE "id" = $1',
             [clienteId]
         );
         if (clienteResult.rows.length === 0) {
@@ -132,6 +132,7 @@ app.get('/api/public/dashboard/:clienteId', async (req, res) => {
 
         res.json({
             cliente: cliente.nome,
+            diaFechamento: cliente.diaFechamento,
             totalHoras: totalGeralHoras,
             totalProjetos: projetosComLancamentos.length,
             totalLancamentos: lancamentos.length,
@@ -185,10 +186,10 @@ app.post('/api/clientes', async (req, res) => {
   const c = req.body;
   try {
     const query = `
-      INSERT INTO clientes ("id", "nome", "email", "telefone", "dataCadastro", "dataAtualizacao", "usuarioId")
-      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
+      INSERT INTO clientes ("id", "nome", "email", "telefone", "dataCadastro", "dataAtualizacao", "usuarioId", "diaFechamento")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
     `;
-    const { rows } = await pool.query(query, [c.id, c.nome, c.email, c.telefone, c.dataCadastro, c.dataAtualizacao, req.user.id]);
+    const { rows } = await pool.query(query, [c.id, c.nome, c.email, c.telefone, c.dataCadastro, c.dataAtualizacao, req.user.id, c.diaFechamento || 17]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -198,10 +199,10 @@ app.put('/api/clientes/:id', async (req, res) => {
   try {
     const query = `
       UPDATE clientes SET 
-        "nome" = $1, "email" = $2, "telefone" = $3, "dataAtualizacao" = $4
-      WHERE "id" = $5 AND "usuarioId" = $6 RETURNING *;
+        "nome" = $1, "email" = $2, "telefone" = $3, "dataAtualizacao" = $4, "diaFechamento" = $5
+      WHERE "id" = $6 AND "usuarioId" = $7 RETURNING *;
     `;
-    const { rows } = await pool.query(query, [c.nome, c.email, c.telefone, c.dataAtualizacao, req.params.id, req.user.id]);
+    const { rows } = await pool.query(query, [c.nome, c.email, c.telefone, c.dataAtualizacao, c.diaFechamento || 17, req.params.id, req.user.id]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -302,13 +303,13 @@ app.post('/api/migrar', async (req, res) => {
     
     for (const c of (clientes || [])) {
       await client.query(`
-        INSERT INTO clientes ("id", "nome", "email", "telefone", "dataCadastro", "dataAtualizacao", "usuarioId")
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO clientes ("id", "nome", "email", "telefone", "dataCadastro", "dataAtualizacao", "usuarioId", "diaFechamento")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT ("id") DO UPDATE SET
           "nome" = EXCLUDED."nome", "email" = EXCLUDED."email",
           "telefone" = EXCLUDED."telefone", "dataAtualizacao" = EXCLUDED."dataAtualizacao",
-          "usuarioId" = EXCLUDED."usuarioId";
-      `, [c.id, c.nome, c.email, c.telefone, c.dataCadastro, c.dataAtualizacao, req.user.id]);
+          "usuarioId" = EXCLUDED."usuarioId", "diaFechamento" = EXCLUDED."diaFechamento";
+      `, [c.id, c.nome, c.email, c.telefone, c.dataCadastro, c.dataAtualizacao, req.user.id, c.diaFechamento || 17]);
     }
     
     for (const p of (projetos || [])) {

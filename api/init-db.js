@@ -80,9 +80,10 @@ async function initDB() {
       );
     `);
 
-    // Alimenta as tabelas antigas/novas com a coluna mult-user
+    // Alimenta as tabelas antigas/novas com a coluna mult-user e novos campos
     await pool.query(`
       ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
+      ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "diaFechamento" INT DEFAULT 17;
       ALTER TABLE projetos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
       ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
       ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "atividade" TEXT;

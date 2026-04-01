@@ -118,6 +118,18 @@ Object.assign(ControleHoras.prototype, {
             ? this.projetos.filter(p => p.clienteId === clienteId)
             : this.projetos;
 
+        // Atualiza as datas com o dia_fechamento do cliente selecionado (se houver)
+        let diaF = 17;
+        if (clienteId) {
+            const clienteAtual = this.clientes.find(c => c.id === clienteId);
+            if (clienteAtual) diaF = clienteAtual.diaFechamento || 17;
+        }
+        const periodo = this.calcularPeriodoVigente(diaF);
+        const fp = window.fpInstances || {};
+        const set = (id, val) => fp[id] ? fp[id].setDate(val, true) : (document.getElementById(id).value = val);
+        set('dataInicioDashboard', periodo.inicio);
+        set('dataFimDashboard', periodo.fim);
+
         lista.forEach(p => {
             const cliente = this.clientes.find(c => c.id === p.clienteId);
             const opt = document.createElement('option');

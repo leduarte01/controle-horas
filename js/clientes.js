@@ -7,6 +7,7 @@ Object.assign(ControleHoras.prototype, {
         const nome     = document.getElementById('nomeCliente').value.trim();
         const email    = document.getElementById('emailCliente').value.trim();
         const telefone = document.getElementById('telefoneCliente').value.trim();
+        const diaFechamento = parseInt(document.getElementById('diaFechamento').value) || 17;
 
         if (!nome) { this.mostrarToast('Informe o nome do cliente.', 'error'); return; }
 
@@ -16,14 +17,14 @@ Object.assign(ControleHoras.prototype, {
             }
             const idx = this.clientes.findIndex(c => c.id === this.editandoCliente.id);
             if (idx !== -1) {
-                this.clientes[idx] = { ...this.clientes[idx], nome, email, telefone, dataAtualizacao: new Date().toISOString() };
+                this.clientes[idx] = { ...this.clientes[idx], nome, email, telefone, diaFechamento, dataAtualizacao: new Date().toISOString() };
                 this.mostrarToast('Cliente atualizado com sucesso!', 'success');
             }
         } else {
             if (this.clientes.some(c => c.nome.toLowerCase() === nome.toLowerCase())) {
                 this.mostrarToast('Cliente com este nome já existe.', 'error'); return;
             }
-            this.clientes.push({ id: this.gerarId(), nome, email, telefone, dataCadastro: new Date().toISOString() });
+            this.clientes.push({ id: this.gerarId(), nome, email, telefone, diaFechamento, dataCadastro: new Date().toISOString() });
             this.mostrarToast('Cliente cadastrado com sucesso!', 'success');
         }
 
@@ -47,6 +48,7 @@ Object.assign(ControleHoras.prototype, {
                         <th>Nome</th>
                         <th>E-mail</th>
                         <th>Telefone</th>
+                        <th>Ciclo</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -56,6 +58,7 @@ Object.assign(ControleHoras.prototype, {
                             <td style="font-weight:500;">${c.nome}</td>
                             <td style="color:rgba(255,255,255,0.5);font-size:0.8125rem;">${c.email || '—'}</td>
                             <td style="color:rgba(255,255,255,0.5);font-size:0.8125rem;">${c.telefone || '—'}</td>
+                            <td style="color:rgba(255,255,255,0.5);font-size:0.8125rem;">Dia ${c.diaFechamento || 17}</td>
                             <td>
                                 <div class="action-cell">
                                     <button class="btn-info-sm" onclick="controleHoras.copiarLinkDashboard('${c.id}')" title="Copiar link do dashboard público">
@@ -82,6 +85,7 @@ Object.assign(ControleHoras.prototype, {
         document.getElementById('nomeCliente').value     = cliente.nome;
         document.getElementById('emailCliente').value    = cliente.email    || '';
         document.getElementById('telefoneCliente').value = cliente.telefone || '';
+        document.getElementById('diaFechamento').value   = cliente.diaFechamento || 17;
         this.alternarModoEdicaoCliente(true);
         document.getElementById('formCliente').scrollIntoView({ behavior: 'smooth' });
         this.mostrarToast('Editando cliente. Modifique os campos e clique em "Atualizar".', 'info');

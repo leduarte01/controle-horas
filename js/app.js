@@ -62,6 +62,19 @@ class ControleHoras {
         document.getElementById('filtroClienteDashboard').addEventListener('change',
             () => this.atualizarFiltrosProjetoDashboard());
     }
+    calcularPeriodoVigente(diaFechamento) {
+        let dia = parseInt(diaFechamento) || 17;
+        const hoje = new Date();
+        const offset = hoje.getDate() > dia ? 1 : 0;
+        
+        const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1 + offset, dia + 1);
+        const fim = new Date(hoje.getFullYear(), hoje.getMonth() + offset, dia);
+        
+        return {
+            inicio: inicio.toISOString().split('T')[0],
+            fim: fim.toISOString().split('T')[0]
+        };
+    }
 
     definirDataAtual() {
         const fp  = window.fpInstances || {};
@@ -70,16 +83,12 @@ class ControleHoras {
         const hoje = new Date().toISOString().split('T')[0];
         set('dataLancamento', hoje);
 
-        const hoje2   = new Date();
-        // Periodo vigente: Dia 18 ao dia 17. Se já passou do dia 17, pula para o próximo ciclo de faturamento.
-        const offset  = hoje2.getDate() > 17 ? 1 : 0;
+        // Ao abrir pela primeira vez (sem filtro), usa 17 como default
+        const periodo = this.calcularPeriodoVigente(17);
         
-        const inicio  = new Date(hoje2.getFullYear(), hoje2.getMonth() - 1 + offset, 18);
-        const fim     = new Date(hoje2.getFullYear(), hoje2.getMonth() + offset,     17);
-        
-        set('dataInicio',         inicio.toISOString().split('T')[0]);
-        set('dataFim',            fim.toISOString().split('T')[0]);
-        set('dataInicioDashboard', inicio.toISOString().split('T')[0]);
-        set('dataFimDashboard',    fim.toISOString().split('T')[0]);
+        set('dataInicio',         periodo.inicio);
+        set('dataFim',            periodo.fim);
+        set('dataInicioDashboard', periodo.inicio);
+        set('dataFimDashboard',    periodo.fim);
     }
 }

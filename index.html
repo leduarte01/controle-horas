@@ -244,9 +244,14 @@
                                     <label class="form-label" for="emailCliente">E-mail</label>
                                     <input type="email" class="form-control" id="emailCliente">
                                 </div>
-                                <div class="mb-6">
+                                <div class="mb-4">
                                     <label class="form-label" for="telefoneCliente">Telefone</label>
                                     <input type="text" class="form-control" id="telefoneCliente">
+                                </div>
+                                <div class="mb-6">
+                                    <label class="form-label" for="diaFechamento">Dia de Fechamento</label>
+                                    <input type="number" class="form-control" id="diaFechamento" min="1" max="31" value="17" required>
+                                    <p class="text-xs text-neutral-500 mt-1">Dia do mês que se encerra o ciclo deste cliente. Ex: se for 17, o ciclo será do dia 18 ao 17.</p>
                                 </div>
                                 <div style="display:flex;gap:8px;">
                                     <button type="submit" class="btn-primary" style="flex:1;" id="btnSubmitCliente">
