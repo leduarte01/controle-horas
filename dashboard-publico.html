@@ -17,6 +17,9 @@
     <!-- Flatpickr datepicker -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <!-- Main design system CSS -->
     <link rel="stylesheet" href="css/styles.css">
 
@@ -734,6 +737,12 @@
                 <i class="bi bi-list-check icon"></i>
                 <div class="label">Lançamentos</div>
                 <div class="value">${totalLancamentos}</div>
+            </div>
+            <div class="pub-stat-card" style="grid-column: 1 / -1; display:flex; flex-direction:column; align-items:center;">
+                <div class="label" style="text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:15px;">Horas por Atividade</div>
+                <div style="position:relative; width:100%; max-width:350px; height:350px;">
+                    <canvas id="horasChart"></canvas>
+                </div>
             </div>`;
     }
 
@@ -792,6 +801,53 @@
             totalHoras: filteredTotalHoras,
             totalProjetos: projetos.length,
             totalLancamentos: filteredTotalLancs
+        });
+
+        // Agrupa por atividade para o grafico de pizza
+        const horasPorAtiv = {};
+        projetos.forEach(p => {
+            p.lancamentos.forEach(l => {
+                const ativ = l.atividade || 'Outros';
+                horasPorAtiv[ativ] = (horasPorAtiv[ativ] || 0) + (l.horas || 0);
+            });
+        });
+
+        if (window.atividadeChartInstance) {
+            window.atividadeChartInstance.destroy();
+        }
+
+        const ctx = document.getElementById('horasChart').getContext('2d');
+        window.atividadeChartInstance = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(horasPorAtiv),
+                datasets: [{
+                    data: Object.values(horasPorAtiv),
+                    backgroundColor: [
+                        '#f97316', '#fb923c', '#fdba74', '#fed7aa', '#ffedd5',
+                        '#ea580c', '#c2410c', '#9a3412', '#7c2d12', '#431407'
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: 'rgba(255, 255, 255, 0.7)', font: { family: 'Inter', size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ' ' + context.label + ': ' + context.parsed.toFixed(1) + 'h';
+                            }
+                        }
+                    }
+                }
+            }
         });
 
         const container = document.getElementById('projetosContainer');
