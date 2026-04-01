@@ -52,6 +52,7 @@ Object.assign(ControleHoras.prototype, {
                 const ctx = canvas.getContext('2d');
                 window.atividadeChartMainInstance = new Chart(ctx, {
                     type: 'pie',
+                    plugins: [ChartDataLabels],
                     data: {
                         labels: Object.keys(horasPorAtiv),
                         datasets: [{
@@ -67,10 +68,11 @@ Object.assign(ControleHoras.prototype, {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        layout: { padding: 4 },
                         plugins: {
                             legend: {
                                 position: 'bottom',
-                                labels: { color: 'rgba(255, 255, 255, 0.7)', font: { family: 'Inter', size: 11 } }
+                                labels: { color: 'rgba(255, 255, 255, 0.7)', font: { family: 'Inter', size: 11 }, boxWidth: 12 }
                             },
                             tooltip: {
                                 callbacks: {
@@ -78,6 +80,23 @@ Object.assign(ControleHoras.prototype, {
                                         return ' ' + context.label + ': ' + context.parsed.toFixed(1) + 'h';
                                     }
                                 }
+                            },
+                            datalabels: {
+                                color: '#fff',
+                                font: { weight: 'bold', size: 11, family: 'Inter' },
+                                formatter: (value, ctx) => {
+                                    let sum = 0;
+                                    let dataArr = ctx.chart.data.datasets[0].data;
+                                    dataArr.map(d => { sum += d; });
+                                    let percentage = (value * 100 / sum).toFixed(0) + "%";
+                                    return value.toFixed(1) + 'h\n(' + percentage + ')';
+                                },
+                                display: function(context) {
+                                    var dataset = context.dataset;
+                                    var value = dataset.data[context.dataIndex];
+                                    return value > 0;
+                                },
+                                textAlign: 'center'
                             }
                         }
                     }
