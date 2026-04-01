@@ -296,6 +296,70 @@ Object.assign(ControleHoras.prototype, {
     },
 
     // ─── Gerenciamento de Colunas ───
+    _colunaDragItem: null,
+
+    _criarColunaEditorItem(valor, placeholder) {
+        const div = document.createElement('div');
+        div.className = 'coluna-editor-item';
+        div.setAttribute('draggable', 'true');
+        div.innerHTML = `
+            <span class="coluna-drag-handle"><i class="bi bi-grip-vertical"></i></span>
+            <input type="text" class="form-control coluna-input" value="${valor ? this.escapeHtml(valor) : ''}" placeholder="${placeholder || ''}" style="flex:1;">
+            <button type="button" class="btn-danger-sm" onclick="this.parentElement.remove();" title="Remover">
+                <i class="bi bi-trash"></i>
+            </button>`;
+
+        // Drag only from handle
+        const handle = div.querySelector('.coluna-drag-handle');
+        div.addEventListener('dragstart', (e) => {
+            if (!e.target.closest('.coluna-drag-handle') && e.target !== handle) {
+                e.preventDefault();
+                return;
+            }
+            this._colunaDragItem = div;
+            div.classList.add('coluna-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        div.addEventListener('dragend', () => {
+            div.classList.remove('coluna-dragging');
+            this._colunaDragItem = null;
+            // Remove any remaining drag-over styles
+            document.querySelectorAll('.coluna-editor-item.coluna-drag-over').forEach(el => el.classList.remove('coluna-drag-over'));
+        });
+        div.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (this._colunaDragItem && this._colunaDragItem !== div) {
+                div.classList.add('coluna-drag-over');
+            }
+        });
+        div.addEventListener('dragleave', () => {
+            div.classList.remove('coluna-drag-over');
+        });
+        div.addEventListener('drop', (e) => {
+            e.preventDefault();
+            div.classList.remove('coluna-drag-over');
+            if (!this._colunaDragItem || this._colunaDragItem === div) return;
+            const container = document.getElementById('colunasEditor');
+            const items = [...container.querySelectorAll('.coluna-editor-item')];
+            const fromIdx = items.indexOf(this._colunaDragItem);
+            const toIdx = items.indexOf(div);
+            if (fromIdx < toIdx) {
+                div.after(this._colunaDragItem);
+            } else {
+                div.before(this._colunaDragItem);
+            }
+        });
+
+        // Prevent drag when clicking inside the input
+        const input = div.querySelector('input');
+        input.addEventListener('mousedown', () => { div.setAttribute('draggable', 'false'); });
+        input.addEventListener('mouseup',   () => { div.setAttribute('draggable', 'true'); });
+        input.addEventListener('blur',      () => { div.setAttribute('draggable', 'true'); });
+
+        return div;
+    },
+
     abrirModalColunas() {
         const modal = document.getElementById('modalColunas');
         const container = document.getElementById('colunasEditor');
@@ -304,16 +368,8 @@ Object.assign(ControleHoras.prototype, {
         if (!Array.isArray(colunas)) colunas = ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído'];
 
         container.innerHTML = '';
-        colunas.forEach((col, i) => {
-            const div = document.createElement('div');
-            div.className = 'coluna-editor-item';
-            div.innerHTML = `
-                <span class="coluna-drag-handle"><i class="bi bi-grip-vertical"></i></span>
-                <input type="text" class="form-control coluna-input" value="${this.escapeHtml(col)}" style="flex:1;">
-                <button type="button" class="btn-danger-sm" onclick="this.parentElement.remove();" title="Remover">
-                    <i class="bi bi-trash"></i>
-                </button>`;
-            container.appendChild(div);
+        colunas.forEach(col => {
+            container.appendChild(this._criarColunaEditorItem(col));
         });
 
         modal.classList.add('active');
@@ -325,14 +381,7 @@ Object.assign(ControleHoras.prototype, {
 
     adicionarColunaKanban() {
         const container = document.getElementById('colunasEditor');
-        const div = document.createElement('div');
-        div.className = 'coluna-editor-item';
-        div.innerHTML = `
-            <span class="coluna-drag-handle"><i class="bi bi-grip-vertical"></i></span>
-            <input type="text" class="form-control coluna-input" value="" placeholder="Nome da coluna" style="flex:1;">
-            <button type="button" class="btn-danger-sm" onclick="this.parentElement.remove();" title="Remover">
-                <i class="bi bi-trash"></i>
-            </button>`;
+        const div = this._criarColunaEditorItem('', 'Nome da coluna');
         container.appendChild(div);
         div.querySelector('input').focus();
     },

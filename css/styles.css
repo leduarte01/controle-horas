@@ -906,9 +906,22 @@ input.flatpickr-input { cursor: pointer !important; }
     color: rgba(255,255,255,0.2);
     cursor: grab;
     font-size: 1rem;
+    padding: 4px 2px;
+    touch-action: none;
 }
+.coluna-drag-handle:hover { color: rgba(255,255,255,0.5); }
+.coluna-drag-handle:active { cursor: grabbing; }
 .coluna-input {
     font-size: 0.875rem !important;
+}
+.coluna-editor-item.coluna-dragging {
+    opacity: 0.4;
+    transform: scale(0.96);
+}
+.coluna-editor-item.coluna-drag-over {
+    border-top: 2px solid #f97316;
+    padding-top: 6px;
+    margin-top: -2px;
 }
 
 /* ── Responsive Kanban ── */
