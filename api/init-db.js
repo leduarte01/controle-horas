@@ -85,8 +85,28 @@ async function initDB() {
       ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
       ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "diaFechamento" INT DEFAULT 17;
       ALTER TABLE projetos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
+      ALTER TABLE projetos ADD COLUMN IF NOT EXISTS "colunasKanban" JSONB DEFAULT '["Backlog","A Fazer","Em Andamento","Revisão","Concluído"]';
       ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
       ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "atividade" TEXT;
+    `);
+
+    // Tabela de Tarefas do Kanban
+    console.log('Criando tabela de tarefas do Kanban...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tarefas (
+        "id" VARCHAR(50) PRIMARY KEY,
+        "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE,
+        "projetoId" VARCHAR(50) REFERENCES projetos("id") ON DELETE CASCADE,
+        "coluna" VARCHAR(100) NOT NULL DEFAULT 'Backlog',
+        "titulo" VARCHAR(255) NOT NULL,
+        "descricao" TEXT,
+        "ordem" INT DEFAULT 0,
+        "dataInicio" VARCHAR(50),
+        "dataPrevisao" VARCHAR(50),
+        "dataEntrega" VARCHAR(50),
+        "dataCriacao" VARCHAR(50),
+        "dataAtualizacao" VARCHAR(50)
+      );
     `);
 
     // Migração de Admin: Cria a conta superadmin e amarra aos dados velhos

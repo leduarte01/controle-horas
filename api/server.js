@@ -226,10 +226,11 @@ app.post('/api/projetos', async (req, res) => {
   const p = req.body;
   try {
     const query = `
-      INSERT INTO projetos ("id", "clienteId", "nome", "descricao", "valorHora", "dataCadastro", "dataAtualizacao", "usuarioId")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
+      INSERT INTO projetos ("id", "clienteId", "nome", "descricao", "valorHora", "dataCadastro", "dataAtualizacao", "usuarioId", "colunasKanban")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
     `;
-    const { rows } = await pool.query(query, [p.id, p.clienteId, p.nome, p.descricao, p.valorHora, p.dataCadastro, p.dataAtualizacao, req.user.id]);
+    const colunasDefault = JSON.stringify(p.colunasKanban || ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído']);
+    const { rows } = await pool.query(query, [p.id, p.clienteId, p.nome, p.descricao, p.valorHora, p.dataCadastro, p.dataAtualizacao, req.user.id, colunasDefault]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -239,10 +240,11 @@ app.put('/api/projetos/:id', async (req, res) => {
   try {
     const query = `
       UPDATE projetos SET 
-        "clienteId" = $1, "nome" = $2, "descricao" = $3, "valorHora" = $4, "dataAtualizacao" = $5
-      WHERE "id" = $6 AND "usuarioId" = $7 RETURNING *;
+        "clienteId" = $1, "nome" = $2, "descricao" = $3, "valorHora" = $4, "dataAtualizacao" = $5, "colunasKanban" = $6
+      WHERE "id" = $7 AND "usuarioId" = $8 RETURNING *;
     `;
-    const { rows } = await pool.query(query, [p.clienteId, p.nome, p.descricao, p.valorHora, p.dataAtualizacao, req.params.id, req.user.id]);
+    const colunas = p.colunasKanban ? JSON.stringify(p.colunasKanban) : null;
+    const { rows } = await pool.query(query, [p.clienteId, p.nome, p.descricao, p.valorHora, p.dataAtualizacao, colunas, req.params.id, req.user.id]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -250,6 +252,80 @@ app.put('/api/projetos/:id', async (req, res) => {
 app.delete('/api/projetos/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM projetos WHERE "id" = $1 AND "usuarioId" = $2', [req.params.id, req.user.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- TAREFAS (KANBAN) ---
+app.get('/api/tarefas/:projetoId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "usuarioId" = $2 ORDER BY "ordem" ASC',
+      [req.params.projetoId, req.user.id]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/tarefas', async (req, res) => {
+  const t = req.body;
+  try {
+    const query = `
+      INSERT INTO tarefas ("id", "usuarioId", "projetoId", "coluna", "titulo", "descricao", "ordem", "dataInicio", "dataPrevisao", "dataEntrega", "dataCriacao", "dataAtualizacao")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *;
+    `;
+    const { rows } = await pool.query(query, [
+      t.id, req.user.id, t.projetoId, t.coluna || 'Backlog', t.titulo, t.descricao || '',
+      t.ordem || 0, t.dataInicio || null, t.dataPrevisao || null, t.dataEntrega || null,
+      t.dataCriacao || new Date().toISOString(), t.dataAtualizacao || new Date().toISOString()
+    ]);
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/tarefas/:id', async (req, res) => {
+  const t = req.body;
+  try {
+    const query = `
+      UPDATE tarefas SET 
+        "coluna" = $1, "titulo" = $2, "descricao" = $3, "ordem" = $4,
+        "dataInicio" = $5, "dataPrevisao" = $6, "dataEntrega" = $7, "dataAtualizacao" = $8
+      WHERE "id" = $9 AND "usuarioId" = $10 RETURNING *;
+    `;
+    const { rows } = await pool.query(query, [
+      t.coluna, t.titulo, t.descricao, t.ordem,
+      t.dataInicio || null, t.dataPrevisao || null, t.dataEntrega || null,
+      new Date().toISOString(), req.params.id, req.user.id
+    ]);
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Reordenação em lote (Drag & Drop)
+app.put('/api/tarefas-reordenar', async (req, res) => {
+  const { tarefas } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const t of tarefas) {
+      await client.query(
+        'UPDATE tarefas SET "coluna" = $1, "ordem" = $2, "dataAtualizacao" = $3 WHERE "id" = $4 AND "usuarioId" = $5',
+        [t.coluna, t.ordem, new Date().toISOString(), t.id, req.user.id]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/api/tarefas/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM tarefas WHERE "id" = $1 AND "usuarioId" = $2', [req.params.id, req.user.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -313,14 +389,16 @@ app.post('/api/migrar', async (req, res) => {
     }
     
     for (const p of (projetos || [])) {
+      const colunasDefault = JSON.stringify(p.colunasKanban || ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído']);
       await client.query(`
-        INSERT INTO projetos ("id", "clienteId", "nome", "descricao", "valorHora", "dataCadastro", "dataAtualizacao", "usuarioId")
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO projetos ("id", "clienteId", "nome", "descricao", "valorHora", "dataCadastro", "dataAtualizacao", "usuarioId", "colunasKanban")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT ("id") DO UPDATE SET
           "clienteId" = EXCLUDED."clienteId", "nome" = EXCLUDED."nome",
           "descricao" = EXCLUDED."descricao", "valorHora" = EXCLUDED."valorHora",
-          "dataAtualizacao" = EXCLUDED."dataAtualizacao", "usuarioId" = EXCLUDED."usuarioId";
-      `, [p.id, p.clienteId, p.nome, p.descricao, p.valorHora, p.dataCadastro, p.dataAtualizacao, req.user.id]);
+          "dataAtualizacao" = EXCLUDED."dataAtualizacao", "usuarioId" = EXCLUDED."usuarioId",
+          "colunasKanban" = EXCLUDED."colunasKanban";
+      `, [p.id, p.clienteId, p.nome, p.descricao, p.valorHora, p.dataCadastro, p.dataAtualizacao, req.user.id, colunasDefault]);
     }
     
     for (const l of (lancamentos || [])) {

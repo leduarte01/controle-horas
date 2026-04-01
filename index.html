@@ -134,6 +134,9 @@
         <button class="nav-item" data-section="relatorios" onclick="navegarPara('relatorios')">
             <span class="nav-icon"><i class="bi bi-graph-up"></i></span><span>Relatórios</span>
         </button>
+        <button class="nav-item" data-section="kanban" onclick="navegarPara('kanban')">
+            <span class="nav-icon"><i class="bi bi-kanban"></i></span><span>Kanban</span>
+        </button>
     </aside>
 
     <!-- Main content -->
@@ -498,7 +501,113 @@
             </div>
         </section>
 
+        <!-- ══ Kanban ══ -->
+        <section id="section-kanban" class="page-section hidden">
+            <div class="mb-8">
+                <div class="inline-flex items-center gap-2 mb-3">
+                    <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
+                    <span class="text-xs font-bold tracking-widest uppercase text-orange-500/80">Gestão Visual</span>
+                </div>
+                <h1 class="text-4xl font-medium tracking-tighter">Kanban</h1>
+            </div>
+
+            <!-- Filtro de Projeto + Botão Colunas -->
+            <div class="glass-card mb-5">
+                <div class="card-header"><i class="bi bi-funnel mr-2 text-orange-500/70"></i>Projeto</div>
+                <div class="p-5">
+                    <div class="flex gap-3 items-end flex-wrap">
+                        <div style="flex:1;min-width:220px;">
+                            <label class="form-label" for="kanbanProjetoSelect">Projeto</label>
+                            <select class="form-control" id="kanbanProjetoSelect" onchange="controleHoras.carregarKanban(this.value)"></select>
+                        </div>
+                        <button type="button" class="btn-ghost" style="padding:8px 14px;font-size:0.8125rem;white-space:nowrap;" onclick="controleHoras.abrirModalColunas()">
+                            <i class="bi bi-gear mr-1"></i>Editar Colunas
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quadro Kanban -->
+            <div id="kanbanBoard" class="kanban-board">
+                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um projeto para visualizar o Kanban.</p>
+            </div>
+        </section>
+
     </main>
+</div>
+
+<!-- ═══ Modal de Tarefa ═══ -->
+<div id="modalTarefa" class="kanban-modal-overlay" onclick="if(event.target===this) controleHoras.fecharModalTarefa();">
+    <div class="kanban-modal glass-card">
+        <div class="card-header" style="justify-content:space-between;">
+            <span><i class="bi bi-card-checklist mr-2 text-orange-500/70"></i><span id="modalTarefaTitulo">Nova Tarefa</span></span>
+            <button class="btn-ghost" style="padding:4px 8px;" onclick="controleHoras.fecharModalTarefa();"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <form id="formTarefa" class="p-5" onsubmit="event.preventDefault(); controleHoras.salvarTarefa();">
+            <input type="hidden" id="tarefaId">
+            <div class="mb-4">
+                <label class="form-label" for="tarefaTitulo">Título *</label>
+                <input type="text" class="form-control" id="tarefaTitulo" required placeholder="Ex: Implementar login">
+            </div>
+            <div class="mb-4">
+                <label class="form-label" for="tarefaDescricao">Descrição</label>
+                <textarea class="form-control" id="tarefaDescricao" rows="3" placeholder="Detalhes da tarefa..."></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="form-label" for="tarefaColuna">Coluna / Status</label>
+                <select class="form-control" id="tarefaColuna"></select>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                <div>
+                    <label class="form-label" for="tarefaDataInicio">Data Início</label>
+                    <input type="date" class="form-control" id="tarefaDataInicio">
+                </div>
+                <div>
+                    <label class="form-label" for="tarefaDataPrevisao">Previsão Entrega</label>
+                    <input type="date" class="form-control" id="tarefaDataPrevisao">
+                </div>
+                <div>
+                    <label class="form-label" for="tarefaDataEntrega">Entrega Real</label>
+                    <input type="date" class="form-control" id="tarefaDataEntrega">
+                </div>
+            </div>
+            <div class="flex gap-3 justify-between">
+                <button type="button" id="btnExcluirTarefa" class="btn-ghost" style="color:#ef4444;display:none;" onclick="controleHoras.excluirTarefa();">
+                    <i class="bi bi-trash mr-1"></i>Excluir
+                </button>
+                <div class="flex gap-3 ml-auto">
+                    <button type="button" class="btn-ghost" onclick="controleHoras.fecharModalTarefa();">Cancelar</button>
+                    <button type="submit" class="btn-primary">
+                        <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                        <i class="bi bi-check-lg mr-1"></i><span class="btn-label">Salvar</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══ Modal de Colunas ═══ -->
+<div id="modalColunas" class="kanban-modal-overlay" onclick="if(event.target===this) controleHoras.fecharModalColunas();">
+    <div class="kanban-modal glass-card" style="max-width:420px;">
+        <div class="card-header" style="justify-content:space-between;">
+            <span><i class="bi bi-layout-three-columns mr-2 text-orange-500/70"></i>Editar Colunas</span>
+            <button class="btn-ghost" style="padding:4px 8px;" onclick="controleHoras.fecharModalColunas();"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="p-5">
+            <div id="colunasEditor" class="mb-4" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <button type="button" class="btn-ghost w-full mb-4" style="border:1px dashed rgba(255,255,255,0.12);" onclick="controleHoras.adicionarColunaKanban();">
+                <i class="bi bi-plus-lg mr-1"></i>Adicionar Coluna
+            </button>
+            <div class="flex gap-3 justify-end">
+                <button type="button" class="btn-ghost" onclick="controleHoras.fecharModalColunas();">Cancelar</button>
+                <button type="button" class="btn-primary" onclick="controleHoras.salvarColunasKanban();">
+                    <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                    <i class="bi bi-check-lg mr-1"></i><span class="btn-label">Salvar</span>
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ═══ Mobile Bottom Navigation ═══ -->
@@ -517,6 +626,9 @@
     </button>
     <button class="mobile-nav-item flex-1" data-section="relatorios" onclick="navegarPara('relatorios')">
         <i class="bi bi-graph-up text-lg"></i><span>Relatórios</span>
+    </button>
+    <button class="mobile-nav-item flex-1" data-section="kanban" onclick="navegarPara('kanban')">
+        <i class="bi bi-kanban text-lg"></i><span>Kanban</span>
     </button>
 </nav>
 
@@ -540,6 +652,7 @@
 <script src="js/lancamentos.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/relatorios.js"></script>
+<script src="js/kanban.js"></script>
 <script src="js/main.js"></script>
 
 <!-- Custom Select init – portal-based, always renders above table/card stacking contexts -->

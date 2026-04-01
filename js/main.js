@@ -21,6 +21,11 @@ function navegarPara(secao) {
     document.querySelectorAll('.mobile-nav-item').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.section === secao);
     });
+
+    // Inicializar Kanban quando acessar a aba
+    if (secao === 'kanban' && controleHoras && controleHoras.inicializarKanban) {
+        controleHoras.inicializarKanban();
+    }
 }
 
 // ── Global compatibility wrappers (called from inline onclick in HTML) ──

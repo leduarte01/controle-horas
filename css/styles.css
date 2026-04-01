@@ -694,3 +694,223 @@ span.flatpickr-weekday {
 /* The visible alt input — keep form-control appearance */
 .flatpickr-input[readonly],
 input.flatpickr-input { cursor: pointer !important; }
+
+/* ============================================================
+   Kanban Board
+   ============================================================ */
+
+/* ── Board grid ── */
+.kanban-board {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 16px;
+    min-height: 420px;
+    scroll-snap-type: x mandatory;
+}
+
+/* ── Column ── */
+.kanban-column {
+    flex: 0 0 280px;
+    min-width: 280px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    scroll-snap-align: start;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.kanban-column-over {
+    border-color: rgba(249,115,22,0.35) !important;
+    background: rgba(249,115,22,0.04) !important;
+}
+
+.kanban-column-header {
+    padding: 14px 16px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.kanban-column-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255,255,255,0.6);
+}
+
+.kanban-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.kanban-count {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.4);
+    padding: 1px 7px;
+    border-radius: 9999px;
+}
+
+.kanban-add-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.35);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+.kanban-add-btn:hover {
+    background: rgba(249,115,22,0.12);
+    border-color: rgba(249,115,22,0.3);
+    color: #f97316;
+}
+
+/* ── Cards container ── */
+.kanban-cards {
+    padding: 10px 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 60px;
+}
+
+/* ── Card ── */
+.kanban-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: grab;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    user-select: none;
+}
+.kanban-card:hover {
+    border-color: rgba(249,115,22,0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+.kanban-card:active {
+    cursor: grabbing;
+}
+.kanban-card.dragging {
+    opacity: 0.45;
+    transform: rotate(2deg) scale(0.96);
+}
+
+.kanban-card-title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.88);
+    margin-bottom: 4px;
+    line-height: 1.35;
+}
+
+.kanban-card-desc {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.4;
+    margin-bottom: 6px;
+}
+
+/* ── Card dates ── */
+.kanban-card-dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+.kanban-card-dates span {
+    font-size: 0.625rem;
+    color: rgba(255,255,255,0.4);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.kanban-card-dates span i { font-size: 0.625rem; }
+
+/* Atrasado badge */
+.kanban-badge-atrasado {
+    color: #ef4444 !important;
+    border-color: rgba(239,68,68,0.2) !important;
+    background: rgba(239,68,68,0.08) !important;
+}
+.kanban-card-atrasado {
+    border-color: rgba(239,68,68,0.15) !important;
+}
+
+/* Entregue badge */
+.kanban-badge-entregue {
+    color: #22c55e !important;
+    border-color: rgba(34,197,94,0.2) !important;
+    background: rgba(34,197,94,0.08) !important;
+}
+
+/* ── Modal overlay ── */
+.kanban-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.kanban-modal-overlay.active {
+    display: flex;
+}
+
+.kanban-modal {
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: fadeSlideIn 0.2s ease;
+}
+
+/* ── Coluna editor ── */
+.coluna-editor-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.coluna-drag-handle {
+    color: rgba(255,255,255,0.2);
+    cursor: grab;
+    font-size: 1rem;
+}
+.coluna-input {
+    font-size: 0.875rem !important;
+}
+
+/* ── Responsive Kanban ── */
+@media (max-width: 768px) {
+    .kanban-column {
+        flex: 0 0 260px;
+        min-width: 260px;
+    }
+}
+

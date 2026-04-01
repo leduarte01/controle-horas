@@ -7,6 +7,13 @@ Object.assign(ControleHoras.prototype, {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
     },
 
+    escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+    },
+
     /** Parse YYYY-MM-DD safely in local timezone (avoids UTC offset shifts). */
     parseDateLocal(dateStr) {
         if (!dateStr) return null;
