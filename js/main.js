@@ -26,6 +26,11 @@ function navegarPara(secao) {
     if (secao === 'kanban' && controleHoras && controleHoras.inicializarKanban) {
         controleHoras.inicializarKanban();
     }
+    
+    // Carregar Equipe quando acessar a aba
+    if (secao === 'equipe' && controleHoras && controleHoras.carregarEquipe) {
+        controleHoras.carregarEquipe();
+    }
 }
 
 // ── Global compatibility wrappers (called from inline onclick in HTML) ──
