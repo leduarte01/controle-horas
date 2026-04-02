@@ -41,7 +41,7 @@ Object.assign(ControleHoras.prototype, {
                             ${u.nome}
                             ${u.id === meuId ? '<span class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-neutral-300 uppercase tracking-wider">Você</span>' : ''}
                         </div>
-                        <div class="text-xs text-neutral-400">@${u.username} &bull; <span class="${u.role === 'admin' ? 'text-orange-400' : 'text-neutral-500'}">${u.role === 'admin' ? 'Administrador' : 'Membro'}</span></div>
+                        <div class="text-xs text-neutral-400"><i class="bi bi-envelope mr-1"></i>${u.username} &bull; <span class="${u.role === 'admin' ? 'text-orange-400' : 'text-neutral-500'}">${u.role === 'admin' ? 'Administrador' : 'Membro'}</span></div>
                     </div>
                 </div>
                 ${isAdmin ? `
