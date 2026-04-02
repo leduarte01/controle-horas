@@ -92,8 +92,14 @@ Object.assign(ControleHoras.prototype, {
         this.mostrarToast('Editando projeto. Modifique os campos e clique em "Atualizar".', 'info');
     },
 
-    excluirProjeto(id) {
+    async excluirProjeto(id) {
         if (!confirm('Tem certeza que deseja excluir este projeto? Todos os lançamentos relacionados serão removidos.')) return;
+        try {
+            await fetch(`${this.apiBaseUrl}/projetos/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+        } catch(e) { console.error('Erro ao excluir projeto na API:', e); }
         this.lancamentos = this.lancamentos.filter(l => l.projetoId !== id);
         this.projetos    = this.projetos.filter(p => p.id !== id);
         this.salvarDados();

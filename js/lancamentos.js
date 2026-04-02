@@ -118,8 +118,14 @@ Object.assign(ControleHoras.prototype, {
         }, 60);
     },
 
-    excluirLancamento(id) {
+    async excluirLancamento(id) {
         if (!confirm('Tem certeza que deseja excluir este lançamento?')) return;
+        try {
+            await fetch(`${this.apiBaseUrl}/lancamentos/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+        } catch(e) { console.error('Erro ao excluir lançamento na API:', e); }
         this.lancamentos = this.lancamentos.filter(l => l.id !== id);
         this.salvarDados();
         this.atualizarDashboard();

@@ -91,8 +91,14 @@ Object.assign(ControleHoras.prototype, {
         this.mostrarToast('Editando cliente. Modifique os campos e clique em "Atualizar".', 'info');
     },
 
-    excluirCliente(id) {
+    async excluirCliente(id) {
         if (!confirm('Tem certeza que deseja excluir este cliente? Esta ação removerá todos os projetos e lançamentos relacionados.')) return;
+        try {
+            await fetch(`${this.apiBaseUrl}/clientes/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+        } catch(e) { console.error('Erro ao excluir cliente na API:', e); }
         const projetosDoCliente = this.projetos.filter(p => p.clienteId === id).map(p => p.id);
         this.lancamentos = this.lancamentos.filter(l => !projetosDoCliente.includes(l.projetoId));
         this.projetos    = this.projetos.filter(p => p.clienteId !== id);
