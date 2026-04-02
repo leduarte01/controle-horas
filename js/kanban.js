@@ -15,7 +15,7 @@ Object.assign(ControleHoras.prototype, {
     currentKanbanView: 'board',
     backlogItems: [],
     backlogExpandedNodes: null,
-    kanbanFiltros: { clienteId: '', projetoId: '', epicoId: '', responsavelId: '', prioridade: '', search: '' },
+    kanbanFiltros: { clienteId: '', projetoId: '', epicoId: '', featureId: '', responsavelId: '', prioridade: '', search: '' },
     _searchDebounceTimer: null,
 
     // ─── Inicialização ───
@@ -63,10 +63,11 @@ Object.assign(ControleHoras.prototype, {
     async onFiltroChange(campo, valor) {
         this.kanbanFiltros[campo] = valor;
 
-        // Cascata: mudar cliente → reset projeto/épico, repopular projetos
+        // Cascata: mudar cliente → reset projeto/épico/feature, repopular projetos
         if (campo === 'clienteId') {
             this.kanbanFiltros.projetoId = '';
             this.kanbanFiltros.epicoId = '';
+            this.kanbanFiltros.featureId = '';
             this.kanbanProjetoAtual = null;
             const selProj = document.getElementById('kanbanFiltroProjeto');
             if (selProj) {
@@ -81,11 +82,14 @@ Object.assign(ControleHoras.prototype, {
             }
             const selEp = document.getElementById('kanbanFiltroEpico');
             if (selEp) { selEp.innerHTML = '<option value="">Todos</option>'; selEp.value = ''; }
+            const selFeat = document.getElementById('kanbanFiltroFeature');
+            if (selFeat) { selFeat.innerHTML = '<option value="">Todas</option>'; selFeat.value = ''; selFeat.disabled = true; }
         }
 
-        // Cascata: mudar projeto → carregar épicos do projeto
+        // Cascata: mudar projeto → carregar épicos do projeto, reset feature
         if (campo === 'projetoId') {
             this.kanbanFiltros.epicoId = '';
+            this.kanbanFiltros.featureId = '';
             this.kanbanProjetoAtual = valor ? ((this.projetos || []).find(p => p.id === valor) || null) : null;
             const selEp = document.getElementById('kanbanFiltroEpico');
             if (selEp) {
@@ -104,6 +108,32 @@ Object.assign(ControleHoras.prototype, {
                     } catch (_) {}
                 }
                 selEp.value = '';
+            }
+            const selFeat = document.getElementById('kanbanFiltroFeature');
+            if (selFeat) { selFeat.innerHTML = '<option value="">Todas</option>'; selFeat.value = ''; selFeat.disabled = true; }
+        }
+
+        // Cascata: mudar épico → carregar features do épico
+        if (campo === 'epicoId') {
+            this.kanbanFiltros.featureId = '';
+            const selFeat = document.getElementById('kanbanFiltroFeature');
+            if (selFeat) {
+                selFeat.innerHTML = '<option value="">Todas</option>';
+                selFeat.value = '';
+                selFeat.disabled = !valor;
+                if (valor) {
+                    try {
+                        const resp = await fetch(`${this.apiBaseUrl}/features/${valor}`, {
+                            headers: { 'Authorization': 'Bearer ' + this.token }
+                        });
+                        const features = await resp.json();
+                        features.forEach(f => {
+                            const opt = document.createElement('option');
+                            opt.value = f.id; opt.textContent = f.titulo;
+                            selFeat.appendChild(opt);
+                        });
+                    } catch (_) {}
+                }
             }
         }
 
@@ -144,6 +174,7 @@ Object.assign(ControleHoras.prototype, {
         if (f.clienteId)     params.append('clienteId', f.clienteId);
         if (f.projetoId)     params.append('projetoId', f.projetoId);
         if (f.epicoId)       params.append('epicoId', f.epicoId);
+        if (f.featureId)     params.append('featureId', f.featureId);
         if (f.responsavelId) params.append('responsavelId', f.responsavelId);
         if (f.prioridade)    params.append('prioridade', f.prioridade);
         if (f.search)        params.append('search', f.search);
@@ -883,33 +914,49 @@ Object.assign(ControleHoras.prototype, {
     onTarefaTipoChange(tipo, forceParentId) {
         const selParent = document.getElementById('tarefaParentSelect');
         if (!selParent) return;
-        const PARENT_TIPO = { task: 'feature', userstory: 'feature', feature: 'epic', epic: null };
+        // task pode ter feature OU userstory como pai
+        const VALID_PARENTS = { task: ['feature', 'userstory'], userstory: ['feature'], feature: ['epic'], epic: [] };
+        const TIPO_LABELS    = { epic: '👑 Épico', feature: '🎯 Feature', userstory: '📖 User Story' };
         const allItems = [...(this.kanbanTarefas || []), ...(this.backlogItems || [])];
+        // Deduplica por id
+        const seenIds = new Set();
+        const deduped = allItems.filter(i => { if (seenIds.has(i.id)) return false; seenIds.add(i.id); return true; });
 
         const currentParentId = forceParentId || document.getElementById('tarefaParentId').value;
-
-        // Se já existe um pai salvo, usa o tipo real dele para popular o select corretamente
-        let parentTipo = PARENT_TIPO[tipo];
-        if (currentParentId) {
-            const actualParent = allItems.find(i => i.id === currentParentId);
-            if (actualParent) parentTipo = actualParent.tipo;
-        }
+        const validTipos = VALID_PARENTS[tipo] || [];
 
         selParent.innerHTML = '<option value="">Sem pai</option>';
 
-        if (!parentTipo) {
+        if (!validTipos.length) {
             selParent.disabled = true;
             document.getElementById('tarefaParentId').value = '';
             return;
         }
 
-        const potentials = allItems.filter(i => i.tipo === parentTipo);
-        potentials.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.titulo;
-            selParent.appendChild(opt);
-        });
+        const potentials = deduped.filter(i => validTipos.includes(i.tipo));
+
+        if (validTipos.length > 1) {
+            // Agrupa por tipo com optgroup
+            validTipos.forEach(t => {
+                const grupo = potentials.filter(p => p.tipo === t);
+                if (!grupo.length) return;
+                const grp = document.createElement('optgroup');
+                grp.label = TIPO_LABELS[t] || t;
+                grupo.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id; opt.textContent = p.titulo;
+                    grp.appendChild(opt);
+                });
+                selParent.appendChild(grp);
+            });
+        } else {
+            potentials.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id; opt.textContent = p.titulo;
+                selParent.appendChild(opt);
+            });
+        }
+
         selParent.disabled = potentials.length === 0;
 
         if (currentParentId) {
@@ -1203,7 +1250,13 @@ Object.assign(ControleHoras.prototype, {
             : '';
 
         return `
-        <div style="display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:0;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,${nivel % 2 === 0 ? '0' : '0.015'});">
+        <div data-backlog-id="${item.id}" data-backlog-tipo="${item.tipo}"
+             draggable="true"
+             ondragstart="controleHoras._backlogDragStart(event,'${item.id}')"
+             ondragover="controleHoras._backlogDragOver(event,'${item.id}','${item.tipo}')"
+             ondragleave="event.currentTarget.style.outline=''"
+             ondrop="controleHoras._backlogDrop(event,'${item.id}'); event.currentTarget.style.outline=''"
+             style="display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:0;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,${nivel % 2 === 0 ? '0' : '0.015'});cursor:grab;">
             <div style="display:flex;align-items:center;padding-left:${indent}px;gap:4px;min-width:0;">
                 ${chevron}
                 <span style="font-size:0.85rem;margin-right:4px;">${config.icon}</span>
@@ -1233,6 +1286,64 @@ Object.assign(ControleHoras.prototype, {
             this.backlogExpandedNodes.add(id);
         }
         this.renderizarBacklog();
+    },
+
+    // ─── Drag & Drop no Backlog para reassociação ───
+    _backlogDragId: null,
+    // Tipos filhos válidos por tipo pai
+    _VALID_CHILDREN: { epic: ['feature'], feature: ['userstory', 'task'], userstory: ['task'] },
+
+    _backlogDragStart(event, id) {
+        this._backlogDragId = id;
+        event.dataTransfer.effectAllowed = 'move';
+    },
+
+    _backlogDragOver(event, targetId, targetTipo) {
+        if (!this._backlogDragId || this._backlogDragId === targetId) return;
+        const dragged = (this.backlogItems || []).find(i => i.id === this._backlogDragId);
+        if (!dragged) return;
+        const validChildren = this._VALID_CHILDREN[targetTipo] || [];
+        if (validChildren.includes(dragged.tipo)) {
+            event.preventDefault();
+            event.currentTarget.style.outline = '2px solid #f97316';
+            event.currentTarget.style.outlineOffset = '-2px';
+        }
+    },
+
+    async _backlogDrop(event, novoParentId) {
+        event.currentTarget.style.outline = '';
+        const draggedId = this._backlogDragId;
+        this._backlogDragId = null;
+        if (!draggedId || draggedId === novoParentId) return;
+
+        const item   = (this.backlogItems || []).find(i => i.id === draggedId);
+        const target = (this.backlogItems || []).find(i => i.id === novoParentId);
+        if (!item || !target) return;
+
+        const validChildren = this._VALID_CHILDREN[target.tipo] || [];
+        if (!validChildren.includes(item.tipo)) return;
+
+        // Não permitir mover para dentro de um descendente
+        let cur = target;
+        while (cur) {
+            if (cur.id === draggedId) return;
+            cur = (this.backlogItems || []).find(i => i.id === cur.parentId);
+        }
+
+        try {
+            await fetch(`${this.apiBaseUrl}/tarefas/${draggedId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                body: JSON.stringify({ ...item, parentId: novoParentId })
+            });
+            item.parentId = novoParentId;
+            // Expande o novo pai para mostrar o item movido
+            this.backlogExpandedNodes.add(novoParentId);
+            this.renderizarBacklog();
+            this.mostrarToast('Item reassociado!', 'success');
+        } catch (_) {
+            this.mostrarToast('Erro ao reassociar item.', 'error');
+        }
     },
 
     criarEpico() {

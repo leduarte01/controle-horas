@@ -499,10 +499,10 @@ app.delete('/api/tarefas/:id', async (req, res) => {
 });
 
 // --- BOARD CROSS-PROJECT (Kanban redesign) ---
-// GET /api/tarefas-board?clienteId=&projetoId=&epicoId=&responsavelId=&prioridade=&search=&coluna=
+// GET /api/tarefas-board?clienteId=&projetoId=&epicoId=&featureId=&responsavelId=&prioridade=&search=&coluna=
 app.get('/api/tarefas-board', async (req, res) => {
   try {
-    const { clienteId, projetoId, epicoId, responsavelId, prioridade, search, coluna } = req.query;
+    const { clienteId, projetoId, epicoId, featureId, responsavelId, prioridade, search, coluna } = req.query;
     const conditions = [`t."empresaId" = $1`, `(t.tipo = 'task' OR t.tipo IS NULL)`];
     const params = [req.user.empresaId];
     let idx = 2;
@@ -512,6 +512,11 @@ app.get('/api/tarefas-board', async (req, res) => {
     if (epicoId)       {
       conditions.push(`(p1.id = $${idx} OR p2.id = $${idx} OR p3.id = $${idx})`);
       params.push(epicoId); idx++;
+    }
+    if (featureId)     {
+      // task → parentId → feature (direto) ou task → userstory → parentId → feature
+      conditions.push(`(p1.id = $${idx} OR p2.id = $${idx})`);
+      params.push(featureId); idx++;
     }
     if (responsavelId) { conditions.push(`t."responsavelId" = $${idx++}`); params.push(parseInt(responsavelId)); }
     if (prioridade)    { conditions.push(`t.prioridade = $${idx++}`);      params.push(parseInt(prioridade)); }
