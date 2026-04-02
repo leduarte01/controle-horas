@@ -386,7 +386,14 @@ Object.assign(ControleHoras.prototype, {
     async excluirTarefa() {
         const id = document.getElementById('tarefaId').value;
         if (!id) return;
-        if (!confirm('Tem certeza que deseja excluir esta tarefa?')) return;
+        const ok = await Dialog.confirm({
+            title: 'Excluir Tarefa',
+            message: 'Tem certeza que deseja excluir esta tarefa do Kanban?',
+            type: 'danger',
+            confirmText: 'Excluir',
+            cancelText: 'Cancelar'
+        });
+        if (!ok) return;
 
         try {
             await fetch(`${this.apiBaseUrl}/tarefas/${id}`, {
@@ -472,7 +479,14 @@ Object.assign(ControleHoras.prototype, {
     async excluirAtividade() {
         const id = document.getElementById('atividadeId').value;
         if (!id) return;
-        if (!confirm('Excluir esta atividade removerá também todas as tarefas vinculadas. Continuar?')) return;
+        const ok = await Dialog.confirm({
+            title: 'Excluir Atividade',
+            message: 'Excluir esta atividade removerá também todas as tarefas vinculadas. Deseja continuar?',
+            type: 'danger',
+            confirmText: 'Excluir',
+            cancelText: 'Cancelar'
+        });
+        if (!ok) return;
 
         try {
             await fetch(`${this.apiBaseUrl}/atividades/${id}`, {

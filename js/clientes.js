@@ -92,7 +92,14 @@ Object.assign(ControleHoras.prototype, {
     },
 
     async excluirCliente(id) {
-        if (!confirm('Tem certeza que deseja excluir este cliente? Esta ação removerá todos os projetos e lançamentos relacionados.')) return;
+        const ok = await Dialog.confirm({
+            title: 'Excluir Cliente',
+            message: 'Esta ação removerá o cliente e todos os projetos e lançamentos relacionados. Deseja continuar?',
+            type: 'danger',
+            confirmText: 'Excluir',
+            cancelText: 'Cancelar'
+        });
+        if (!ok) return;
         try {
             await fetch(`${this.apiBaseUrl}/clientes/${id}`, {
                 method: 'DELETE',

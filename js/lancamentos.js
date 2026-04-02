@@ -119,7 +119,14 @@ Object.assign(ControleHoras.prototype, {
     },
 
     async excluirLancamento(id) {
-        if (!confirm('Tem certeza que deseja excluir este lançamento?')) return;
+        const ok = await Dialog.confirm({
+            title: 'Excluir Lançamento',
+            message: 'Tem certeza que deseja excluir este lançamento de horas?',
+            type: 'danger',
+            confirmText: 'Excluir',
+            cancelText: 'Cancelar'
+        });
+        if (!ok) return;
         try {
             await fetch(`${this.apiBaseUrl}/lancamentos/${id}`, {
                 method: 'DELETE',

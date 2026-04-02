@@ -51,7 +51,7 @@ async function realizarLogin(e) {
         
         if (!res.ok) {
             if (controleHoras && controleHoras.mostrarToast) controleHoras.mostrarToast('Usuário ou senha inválidos!', 'error');
-            else alert('Usuário ou senha inválidos!');
+            else Dialog.alert({ title: 'Falha no Login', message: 'Usuário ou senha inválidos!', type: 'danger' });
             btn.innerHTML = oriHTML;
             btn.disabled = false;
             return;
@@ -66,7 +66,7 @@ async function realizarLogin(e) {
         await controleHoras.iniciarSistema();
     } catch(err) {
         if (controleHoras && controleHoras.mostrarToast) controleHoras.mostrarToast('Erro ao acessar o servidor.', 'error');
-        else alert('Erro ao acessar o servidor!');
+        else Dialog.alert({ title: 'Erro de Conexão', message: 'Não foi possível conectar ao servidor. Verifique sua conexão.', type: 'danger' });
         btn.innerHTML = oriHTML;
         btn.disabled = false;
     }
