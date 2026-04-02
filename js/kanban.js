@@ -1141,8 +1141,6 @@ Object.assign(ControleHoras.prototype, {
         }
         this.renderizarBacklog();
     },
-        this.renderizarBacklog();
-    },
 
     construirArvore(items) {
         const map = {};
