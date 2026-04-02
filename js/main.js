@@ -60,7 +60,12 @@ async function realizarLogin(e) {
         const data = await res.json();
         localStorage.setItem('token', data.token);
         controleHoras.token = data.token;
+        controleHoras.usuario = controleHoras.parseJwt(data.token);
         document.getElementById('loginOverlay').style.display = 'none';
+        if (controleHoras.usuario && controleHoras.usuario.empresaNome) {
+             const userDisplayName = document.getElementById('userDisplayName');
+             if (userDisplayName) userDisplayName.innerText = controleHoras.usuario.empresaNome;
+        }
         
         if (controleHoras.mostrarToast) controleHoras.mostrarToast('Login realizado com sucesso!', 'success');
         await controleHoras.iniciarSistema();
@@ -108,8 +113,14 @@ async function realizarRegistro(e) {
         
         localStorage.setItem('token', data.token);
         controleHoras.token = data.token;
+        controleHoras.usuario = controleHoras.parseJwt(data.token);
         document.getElementById('loginOverlay').style.display = 'none';
         
+        if (controleHoras.usuario && controleHoras.usuario.empresaNome) {
+             const userDisplayName = document.getElementById('userDisplayName');
+             if (userDisplayName) userDisplayName.innerText = controleHoras.usuario.empresaNome;
+        }
+
         if (controleHoras.mostrarToast) controleHoras.mostrarToast(`Bem-vindo, ${data.username}! Conta ativa.`, 'success');
         await controleHoras.iniciarSistema();
     } catch(err) {

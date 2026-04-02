@@ -31,23 +31,46 @@ async function initDB() {
     // Define o schema padrão para a sessão atual
     await pool.query('SET search_path TO horas;');
 
-    console.log('Criando tabela de Controle de Usuários (SaaS Isolado)...');
+    console.log('Criando tabela de Empresas (SaaS Multi-Tenant)...');
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS usuarios (
+      CREATE TABLE IF NOT EXISTS empresas (
         "id" SERIAL PRIMARY KEY,
-        "username" VARCHAR(50) UNIQUE NOT NULL,
-        "passwordHash" VARCHAR(255) NOT NULL,
+        "cnpj" VARCHAR(20) UNIQUE NOT NULL,
+        "razaoSocial" VARCHAR(255) NOT NULL,
         "dataCadastro" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    console.log('Criando tabelas isoladas...');
+    console.log('Criando tabela de Controle de Usuários...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        "id" SERIAL PRIMARY KEY,
+        "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE,
+        "username" VARCHAR(50) UNIQUE NOT NULL,
+        "passwordHash" VARCHAR(255) NOT NULL,
+        "nome" VARCHAR(255),
+        "role" VARCHAR(20) DEFAULT 'membro',
+        "dataCadastro" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Add new columns if table already exists (for users created before this update)
+    await pool.query(`
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE;
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS "nome" VARCHAR(255);
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS "role" VARCHAR(20) DEFAULT 'membro';
+    `);
+
+    console.log('Criando tabelas de entidades...');
     await pool.query(`
       CREATE TABLE IF NOT EXISTS clientes (
         "id" VARCHAR(50) PRIMARY KEY,
+        "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE,
+        "usuarioId" INT REFERENCES usuarios("id") ON DELETE SET NULL,
         "nome" VARCHAR(255) NOT NULL,
         "email" VARCHAR(255),
         "telefone" VARCHAR(50),
+        "diaFechamento" INT DEFAULT 17,
         "dataCadastro" VARCHAR(50),
         "dataAtualizacao" VARCHAR(50)
       );
@@ -56,10 +79,13 @@ async function initDB() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS projetos (
         "id" VARCHAR(50) PRIMARY KEY,
+        "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE,
+        "usuarioId" INT REFERENCES usuarios("id") ON DELETE SET NULL,
         "clienteId" VARCHAR(50) REFERENCES clientes("id") ON DELETE CASCADE,
         "nome" VARCHAR(255) NOT NULL,
         "descricao" TEXT,
         "valorHora" FLOAT,
+        "colunasKanban" JSONB DEFAULT '["Backlog","A Fazer","Em Andamento","Revisão","Concluído"]',
         "dataCadastro" VARCHAR(50),
         "dataAtualizacao" VARCHAR(50)
       );
@@ -68,7 +94,10 @@ async function initDB() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS lancamentos (
         "id" VARCHAR(50) PRIMARY KEY,
+        "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE,
+        "usuarioId" INT REFERENCES usuarios("id") ON DELETE SET NULL,
         "projetoId" VARCHAR(50) REFERENCES projetos("id") ON DELETE CASCADE,
+        "atividade" TEXT,
         "data" VARCHAR(50),
         "horaInicio" VARCHAR(10),
         "horaFim" VARCHAR(10),
@@ -80,23 +109,29 @@ async function initDB() {
       );
     `);
 
-    // Alimenta as tabelas antigas/novas com a coluna mult-user e novos campos
+    console.log('Criando tabelas do Kanban...');
     await pool.query(`
-      ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
-      ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "diaFechamento" INT DEFAULT 17;
-      ALTER TABLE projetos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
-      ALTER TABLE projetos ADD COLUMN IF NOT EXISTS "colunasKanban" JSONB DEFAULT '["Backlog","A Fazer","Em Andamento","Revisão","Concluído"]';
-      ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE;
-      ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "atividade" TEXT;
+      CREATE TABLE IF NOT EXISTS atividades (
+        "id" VARCHAR(50) PRIMARY KEY,
+        "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE,
+        "usuarioId" INT REFERENCES usuarios("id") ON DELETE SET NULL,
+        "projetoId" VARCHAR(50) REFERENCES projetos("id") ON DELETE CASCADE,
+        "nome" VARCHAR(255) NOT NULL,
+        "descricao" TEXT,
+        "cor" VARCHAR(20) DEFAULT '#f97316',
+        "dataCriacao" VARCHAR(50),
+        "dataAtualizacao" VARCHAR(50)
+      );
     `);
 
-    // Tabela de Tarefas do Kanban
-    console.log('Criando tabela de tarefas do Kanban...');
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tarefas (
         "id" VARCHAR(50) PRIMARY KEY,
-        "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE,
+        "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE,
+        "usuarioId" INT REFERENCES usuarios("id") ON DELETE SET NULL,
         "projetoId" VARCHAR(50) REFERENCES projetos("id") ON DELETE CASCADE,
+        "atividadeId" VARCHAR(50) REFERENCES atividades("id") ON DELETE CASCADE,
+        "responsavelId" INT REFERENCES usuarios("id") ON DELETE SET NULL,
         "coluna" VARCHAR(100) NOT NULL DEFAULT 'Backlog',
         "titulo" VARCHAR(255) NOT NULL,
         "descricao" TEXT,
@@ -109,27 +144,40 @@ async function initDB() {
       );
     `);
 
-    // Tabela de Atividades (por projeto)
-    console.log('Criando tabela de atividades...');
+    // Ensure backwards compatibility by adding new columns to existing tables
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS atividades (
-        "id" VARCHAR(50) PRIMARY KEY,
-        "usuarioId" INT REFERENCES usuarios("id") ON DELETE CASCADE,
-        "projetoId" VARCHAR(50) REFERENCES projetos("id") ON DELETE CASCADE,
-        "nome" VARCHAR(255) NOT NULL,
-        "descricao" TEXT,
-        "cor" VARCHAR(20) DEFAULT '#f97316',
-        "dataCriacao" VARCHAR(50),
-        "dataAtualizacao" VARCHAR(50)
-      );
-    `);
+      ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE;
+      ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE SET NULL;
+      ALTER TABLE clientes ADD COLUMN IF NOT EXISTS "diaFechamento" INT DEFAULT 17;
 
-    // Adiciona atividadeId à tabela tarefas (migração segura)
-    await pool.query(`
+      ALTER TABLE projetos ADD COLUMN IF NOT EXISTS "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE;
+      ALTER TABLE projetos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE SET NULL;
+      ALTER TABLE projetos ADD COLUMN IF NOT EXISTS "colunasKanban" JSONB DEFAULT '["Backlog","A Fazer","Em Andamento","Revisão","Concluído"]';
+
+      ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE;
+      ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "usuarioId" INT REFERENCES usuarios("id") ON DELETE SET NULL;
+      ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "atividade" TEXT;
+
+      ALTER TABLE atividades ADD COLUMN IF NOT EXISTS "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE;
+      
+      ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE;
       ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "atividadeId" VARCHAR(50) REFERENCES atividades("id") ON DELETE CASCADE;
+      ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "responsavelId" INT REFERENCES usuarios("id") ON DELETE SET NULL;
     `);
 
-    // Migração de Admin: Cria a conta superadmin e amarra aos dados velhos
+    // System Provisioning
+    console.log('Provisionando Empresa Default...');
+    const defaultCnpj = '36.160.198/0001-18';
+    await pool.query(`
+      INSERT INTO empresas ("cnpj", "razaoSocial") 
+      VALUES ($1, $2)
+      ON CONFLICT ("cnpj") DO NOTHING;
+    `, [defaultCnpj, 'Leandro Duarte Servicos em Tecnologia da Informacao LTDA.']);
+
+    const { rows: empRows } = await pool.query('SELECT id FROM empresas WHERE cnpj = $1', [defaultCnpj]);
+    const defaultEmpresaId = empRows[0].id;
+
+    console.log('Provisionando Conta Admin...');
     const crypto = require('crypto');
     const adminUser = process.env.ADMIN_USER || 'admin';
     const adminPass = process.env.ADMIN_PASS || 'admin';
@@ -138,23 +186,32 @@ async function initDB() {
     const dbHash = salt + ':' + hash;
     
     await pool.query(`
-      INSERT INTO usuarios ("username", "passwordHash") 
-      VALUES ($1, $2)
-      ON CONFLICT ("username") DO NOTHING;
-    `, [adminUser, dbHash]);
+      INSERT INTO usuarios ("username", "passwordHash", "empresaId", "nome", "role") 
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT ("username") DO UPDATE 
+      SET "empresaId" = EXCLUDED."empresaId",
+          "role" = 'admin';
+    `, [adminUser, dbHash, defaultEmpresaId, 'Administrador do Sistema', 'admin']);
 
-    // Resgata o ID desse super usuário logado no server
-    const { rows } = await pool.query('SELECT id FROM usuarios WHERE username = $1', [adminUser]);
-    const superAdminId = rows[0].id;
+    const { rows: userRows } = await pool.query('SELECT id FROM usuarios WHERE username = $1', [adminUser]);
+    const defaultUsuarioId = userRows[0].id;
 
-    console.log('Amarrando dados órfãos ao dono original do sistema...');
-    await pool.query('UPDATE clientes SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [superAdminId]);
-    await pool.query('UPDATE projetos SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [superAdminId]);
-    await pool.query('UPDATE lancamentos SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [superAdminId]);
+    console.log('Migrando dados existentes para a Empresa Default...');
+    // If a record has NO empresaId, give it to the default company
+    await pool.query('UPDATE clientes SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
+    await pool.query('UPDATE projetos SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
+    await pool.query('UPDATE lancamentos SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
+    await pool.query('UPDATE atividades SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
+    await pool.query('UPDATE tarefas SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
 
-    console.log('Tabelas, Schemas e Arquitetura MultiUsuário processadas com sucesso!');
+    // Cleanup bad user IDs (e.g. from previous single-user to multi-user attempts)
+    await pool.query('UPDATE clientes SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [defaultUsuarioId]);
+    await pool.query('UPDATE projetos SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [defaultUsuarioId]);
+    await pool.query('UPDATE lancamentos SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [defaultUsuarioId]);
+
+    console.log('Arquitetura Multi-Tenant processada e validada com sucesso!');
   } catch (err) {
-    console.error('Erro ao criar tabelas:', err);
+    console.error('Erro ao inicializar banco Multi-Tenant:', err);
   } finally {
     pool.end();
   }

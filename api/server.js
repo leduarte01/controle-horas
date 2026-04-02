@@ -19,7 +19,6 @@ pool.on('connect', client => {
   client.query('SET search_path TO horas;');
 });
 
-// Verifica a Criptografia da Senha
 function verifyPassword(password, hashStr) {
     const parts = hashStr.split(':');
     if (parts.length !== 2) return false;
@@ -29,17 +28,36 @@ function verifyPassword(password, hashStr) {
     return hash === key;
 }
 
-// Rota de Login Multi-Usuário
+function hashPassword(password) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+    return salt + ':' + hash;
+}
+
+// ═══ ROTA DE LOGIN ═══
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const { rows } = await pool.query('SELECT * FROM usuarios WHERE username = $1', [username]);
+        const { rows } = await pool.query(`
+            SELECT u.*, e."razaoSocial" as empresaNome 
+            FROM usuarios u
+            LEFT JOIN empresas e ON u."empresaId" = e.id
+            WHERE u.username = $1
+        `, [username]);
+        
         if (rows.length === 0) return res.status(401).json({ error: 'Usuário não encontrado' });
         
         const user = rows[0];
         if (verifyPassword(password, user.passwordHash)) {
-            const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '7d' });
-            res.json({ token, username: user.username });
+            const token = jwt.sign({ 
+                id: user.id, 
+                username: user.username,
+                empresaId: user.empresaId,
+                role: user.role,
+                nome: user.nome,
+                empresaNome: user.empresaNome
+            }, SECRET_KEY, { expiresIn: '7d' });
+            res.json({ token, username: user.username, nome: user.nome, empresaNome: user.empresaNome, role: user.role });
         } else {
             res.status(401).json({ error: 'Senha inválida' });
         }
@@ -48,82 +66,77 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Abertura de Nova Conta (Registrar-se)
+// Abertura de Conta (Cria novo Tenant/Empresa e o primeiro usuário Admin)
 app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Preencha usuário e senha' });
     
+    const client = await pool.connect();
     try {
-        const salt = crypto.randomBytes(16).toString('hex');
-        const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-        const dbHash = salt + ':' + hash;
+        await client.query('BEGIN');
         
-        const { rows } = await pool.query(`
-            INSERT INTO usuarios ("username", "passwordHash") 
-            VALUES ($1, $2) RETURNING id, username
-        `, [username, dbHash]);
+        // Criar conta tenant (empresa fictícia para este novo usuario solo)
+        const empresaRes = await client.query(`
+            INSERT INTO empresas ("cnpj", "razaoSocial") 
+            VALUES ($1, $2) RETURNING id
+        `, [`TEMP-${Date.now()}`, `Conta SaaS de ${username}`]);
+        const novaEmpresaId = empresaRes.rows[0].id;
         
-        // Logar o usuário diretamente após criar a conta
-        const token = jwt.sign({ id: rows[0].id, username: rows[0].username }, SECRET_KEY, { expiresIn: '7d' });
-        res.json({ success: true, token, username: rows[0].username });
+        const dbHash = hashPassword(password);
+        
+        const userRes = await client.query(`
+            INSERT INTO usuarios ("username", "passwordHash", "empresaId", "nome", "role") 
+            VALUES ($1, $2, $3, $4, $5) RETURNING id, username, nome, "empresaId", role
+        `, [username, dbHash, novaEmpresaId, username, 'admin']);
+        
+        await client.query('COMMIT');
+        
+        const user = userRes.rows[0];
+        const token = jwt.sign({ 
+            id: user.id, username: user.username, empresaId: user.empresaId, role: user.role, nome: user.nome 
+        }, SECRET_KEY, { expiresIn: '7d' });
+        
+        res.json({ success: true, token, username: user.username, role: user.role });
     } catch(err) {
-        res.status(400).json({ error: 'O nome de usuário já está em uso' });
+        await client.query('ROLLBACK');
+        res.status(400).json({ error: 'O nome de usuário já está em uso ou ocorreu erro.' });
+    } finally {
+        client.release();
     }
 });
 
-// ═══ ROTA PÚBLICA — Dashboard do Cliente (sem autenticação) ═══
+// ═══ ROTA PÚBLICA — Dashboard do Cliente ═══
 app.get('/api/public/dashboard/:clienteId', async (req, res) => {
     try {
         const { clienteId } = req.params;
-        
-        // Busca o cliente
-        const clienteResult = await pool.query(
-            'SELECT "id", "nome", "diaFechamento" FROM clientes WHERE "id" = $1',
-            [clienteId]
-        );
-        if (clienteResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Cliente não encontrado' });
-        }
+        const clienteResult = await pool.query('SELECT "id", "nome", "diaFechamento" FROM clientes WHERE "id" = $1', [clienteId]);
+        if (clienteResult.rows.length === 0) return res.status(404).json({ error: 'Cliente não encontrado' });
         const cliente = clienteResult.rows[0];
 
-        // Busca projetos do cliente
-        const projetosResult = await pool.query(
-            'SELECT "id", "nome" FROM projetos WHERE "clienteId" = $1',
-            [clienteId]
-        );
+        const projetosResult = await pool.query('SELECT "id", "nome" FROM projetos WHERE "clienteId" = $1', [clienteId]);
         const projetos = projetosResult.rows;
         const projetoIds = projetos.map(p => p.id);
 
-        // Busca lançamentos dos projetos do cliente
         let lancamentos = [];
         if (projetoIds.length > 0) {
             const placeholders = projetoIds.map((_, i) => `$${i + 1}`).join(',');
             const lancResult = await pool.query(
                 `SELECT "id", "projetoId", "data", "duracao", "atividade", "descricao" 
-                 FROM lancamentos 
-                 WHERE "projetoId" IN (${placeholders})
-                 ORDER BY "data" DESC`,
+                 FROM lancamentos WHERE "projetoId" IN (${placeholders}) ORDER BY "data" DESC`,
                 projetoIds
             );
             lancamentos = lancResult.rows;
         }
 
-        // Monta resposta agrupada
         const projetosComLancamentos = projetos.map(p => {
             const lancs = lancamentos.filter(l => l.projetoId === p.id);
             const totalHoras = lancs.reduce((acc, l) => acc + (l.duracao || 0), 0);
-            // Sufixo do projeto: pega a parte depois do último " - " ou retorna o nome inteiro
             const partes = p.nome.split(' - ');
             const sufixo = partes.length > 1 ? partes.slice(1).join(' - ').trim() : p.nome;
             return {
-                id: p.id,
-                projeto: sufixo,
-                totalHoras,
+                id: p.id, projeto: sufixo, totalHoras,
                 lancamentos: lancs.map(l => ({
-                    data: l.data,
-                    atividade: l.atividade || '',
-                    descricao: l.descricao || '',
-                    horas: l.duracao || 0
+                    data: l.data, atividade: l.atividade || '', descricao: l.descricao || '', horas: l.duracao || 0
                 }))
             };
         }).filter(p => p.lancamentos.length > 0);
@@ -131,29 +144,13 @@ app.get('/api/public/dashboard/:clienteId', async (req, res) => {
         const totalGeralHoras = projetosComLancamentos.reduce((acc, p) => acc + p.totalHoras, 0);
 
         res.json({
-            cliente: cliente.nome,
-            diaFechamento: cliente.diaFechamento,
-            totalHoras: totalGeralHoras,
-            totalProjetos: projetosComLancamentos.length,
-            totalLancamentos: lancamentos.length,
-            projetos: projetosComLancamentos
+            cliente: cliente.nome, diaFechamento: cliente.diaFechamento, totalHoras: totalGeralHoras,
+            totalProjetos: projetosComLancamentos.length, totalLancamentos: lancamentos.length, projetos: projetosComLancamentos
         });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ═══ ROTA PÚBLICA — Lista de clientes para gerar links ═══
-app.get('/api/public/clientes-lista', async (req, res) => {
-    try {
-        const { rows } = await pool.query('SELECT "id", "nome" FROM clientes ORDER BY "nome"');
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Interceptor de Segurança: Bloqueia Requests Sem o Token e Injeta o ID do Usuário Ativo
+// Middleware de Segurança SaaS (Tenancy Guard)
 app.use('/api', (req, res, next) => {
     if (req.path === '/login' || req.path === '/register') return next();
     if (req.path.startsWith('/public/')) return next();
@@ -162,22 +159,82 @@ app.use('/api', (req, res, next) => {
     if (!token) return res.status(401).json({ error: 'Sessão requerida' });
     
     try {
-        req.user = jwt.verify(token, SECRET_KEY); // Expõe req.user.id
+        req.user = jwt.verify(token, SECRET_KEY);
+        // Exige que o JWT sempre conheça a qual empresa(Tenant) este usuário pertence
+        if (!req.user.empresaId) return res.status(403).json({ error: 'Tenant Inválido.' });
         next();
     } catch(e) {
         res.status(401).json({ error: 'Token inválido ou expirado' });
     }
 });
 
-// Servir os arquivos PDF Estáticos
-const path = require('path');
-app.use(express.static(path.join(__dirname, '../')));
+app.use(express.static(require('path').join(__dirname, '../')));
 
-// --- ROTAS ISOLADAS POR USUÁRIO ---
+// =========================================================
+// ================= GESTÃO DA EQUIPE ======================
+// =========================================================
 
+app.get('/api/usuarios-empresa', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+        'SELECT id, username, nome, role, "dataCadastro" FROM usuarios WHERE "empresaId" = $1 ORDER BY "dataCadastro" ASC', 
+        [req.user.empresaId]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/usuarios-empresa', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Só administradores podem cadastrar na equipe.'});
+  const { username, password, nome, role } = req.body;
+  try {
+    const dbHash = hashPassword(password);
+    const { rows } = await pool.query(`
+      INSERT INTO usuarios ("empresaId", "username", "passwordHash", "nome", "role")
+      VALUES ($1, $2, $3, $4, $5) RETURNING id, username, nome, role, "dataCadastro"
+    `, [req.user.empresaId, username, dbHash, nome || username, role || 'membro']);
+    res.json(rows[0]);
+  } catch (err) { 
+    res.status(400).json({ error: 'Username já existe ou dados incorretos.' }); 
+  }
+});
+
+app.put('/api/usuarios-empresa/:id', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Ação restrita.'});
+  const { nome, role, password } = req.body;
+  try {
+    if (password && password.trim() !== '') {
+        const dbHash = hashPassword(password);
+        await pool.query(`UPDATE usuarios SET "nome"=$1, "role"=$2, "passwordHash"=$3 WHERE "id"=$4 AND "empresaId"=$5`,
+            [nome, role, dbHash, req.params.id, req.user.empresaId]);
+    } else {
+        await pool.query(`UPDATE usuarios SET "nome"=$1, "role"=$2 WHERE "id"=$3 AND "empresaId"=$4`,
+            [nome, role, req.params.id, req.user.empresaId]);
+    }
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/usuarios-empresa/:id', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Ação restrita.'});
+  // Impede de apagar o próprio usuário logado
+  if (parseInt(req.params.id) === req.user.id) return res.status(400).json({error: 'Não pode apagar sua própria conta.'});
+  try {
+    await pool.query('DELETE FROM usuarios WHERE "id" = $1 AND "empresaId" = $2', [req.params.id, req.user.empresaId]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// =========================================================
+// =================== ROTAS DO SAAS =======================
+// === Todas filtradas usando: req.user.empresaId        ===
+// =========================================================
+
+// --- CLIENTES ---
 app.get('/api/clientes', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM clientes WHERE "usuarioId" = $1', [req.user.id]);
+    const { rows } = await pool.query('SELECT * FROM clientes WHERE "empresaId" = $1', [req.user.empresaId]);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -186,10 +243,10 @@ app.post('/api/clientes', async (req, res) => {
   const c = req.body;
   try {
     const query = `
-      INSERT INTO clientes ("id", "nome", "email", "telefone", "dataCadastro", "dataAtualizacao", "usuarioId", "diaFechamento")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
+      INSERT INTO clientes ("id", "nome", "email", "telefone", "dataCadastro", "dataAtualizacao", "empresaId", "usuarioId", "diaFechamento")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
     `;
-    const { rows } = await pool.query(query, [c.id, c.nome, c.email, c.telefone, c.dataCadastro, c.dataAtualizacao, req.user.id, c.diaFechamento || 17]);
+    const { rows } = await pool.query(query, [c.id, c.nome, c.email, c.telefone, c.dataCadastro, c.dataAtualizacao, req.user.empresaId, req.user.id, c.diaFechamento || 17]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -200,16 +257,16 @@ app.put('/api/clientes/:id', async (req, res) => {
     const query = `
       UPDATE clientes SET 
         "nome" = $1, "email" = $2, "telefone" = $3, "dataAtualizacao" = $4, "diaFechamento" = $5
-      WHERE "id" = $6 AND "usuarioId" = $7 RETURNING *;
+      WHERE "id" = $6 AND "empresaId" = $7 RETURNING *;
     `;
-    const { rows } = await pool.query(query, [c.nome, c.email, c.telefone, c.dataAtualizacao, c.diaFechamento || 17, req.params.id, req.user.id]);
+    const { rows } = await pool.query(query, [c.nome, c.email, c.telefone, c.dataAtualizacao, c.diaFechamento || 17, req.params.id, req.user.empresaId]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/clientes/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM clientes WHERE "id" = $1 AND "usuarioId" = $2', [req.params.id, req.user.id]);
+    await pool.query('DELETE FROM clientes WHERE "id" = $1 AND "empresaId" = $2', [req.params.id, req.user.empresaId]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -217,7 +274,7 @@ app.delete('/api/clientes/:id', async (req, res) => {
 // --- PROJETOS ---
 app.get('/api/projetos', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM projetos WHERE "usuarioId" = $1', [req.user.id]);
+    const { rows } = await pool.query('SELECT * FROM projetos WHERE "empresaId" = $1', [req.user.empresaId]);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -226,11 +283,11 @@ app.post('/api/projetos', async (req, res) => {
   const p = req.body;
   try {
     const query = `
-      INSERT INTO projetos ("id", "clienteId", "nome", "descricao", "valorHora", "dataCadastro", "dataAtualizacao", "usuarioId", "colunasKanban")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
+      INSERT INTO projetos ("id", "clienteId", "nome", "descricao", "valorHora", "dataCadastro", "dataAtualizacao", "empresaId", "usuarioId", "colunasKanban")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;
     `;
-    const colunasDefault = JSON.stringify(p.colunasKanban || ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído']);
-    const { rows } = await pool.query(query, [p.id, p.clienteId, p.nome, p.descricao, p.valorHora, p.dataCadastro, p.dataAtualizacao, req.user.id, colunasDefault]);
+    const colDefault = JSON.stringify(p.colunasKanban || ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído']);
+    const { rows } = await pool.query(query, [p.id, p.clienteId, p.nome, p.descricao, p.valorHora, p.dataCadastro, p.dataAtualizacao, req.user.empresaId, req.user.id, colDefault]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -241,27 +298,27 @@ app.put('/api/projetos/:id', async (req, res) => {
     const query = `
       UPDATE projetos SET 
         "clienteId" = $1, "nome" = $2, "descricao" = $3, "valorHora" = $4, "dataAtualizacao" = $5, "colunasKanban" = $6
-      WHERE "id" = $7 AND "usuarioId" = $8 RETURNING *;
+      WHERE "id" = $7 AND "empresaId" = $8 RETURNING *;
     `;
     const colunas = p.colunasKanban ? JSON.stringify(p.colunasKanban) : null;
-    const { rows } = await pool.query(query, [p.clienteId, p.nome, p.descricao, p.valorHora, p.dataAtualizacao, colunas, req.params.id, req.user.id]);
+    const { rows } = await pool.query(query, [p.clienteId, p.nome, p.descricao, p.valorHora, p.dataAtualizacao, colunas, req.params.id, req.user.empresaId]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/projetos/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM projetos WHERE "id" = $1 AND "usuarioId" = $2', [req.params.id, req.user.id]);
+    await pool.query('DELETE FROM projetos WHERE "id" = $1 AND "empresaId" = $2', [req.params.id, req.user.empresaId]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- ATIVIDADES ---
+// --- ATIVIDADES (KANBAN) ---
 app.get('/api/atividades/:projetoId', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT * FROM atividades WHERE "projetoId" = $1 AND "usuarioId" = $2 ORDER BY "nome" ASC',
-      [req.params.projetoId, req.user.id]
+      'SELECT * FROM atividades WHERE "projetoId" = $1 AND "empresaId" = $2 ORDER BY "nome" ASC',
+      [req.params.projetoId, req.user.empresaId]
     );
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -271,11 +328,11 @@ app.post('/api/atividades', async (req, res) => {
   const a = req.body;
   try {
     const query = `
-      INSERT INTO atividades ("id", "usuarioId", "projetoId", "nome", "descricao", "cor", "dataCriacao", "dataAtualizacao")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
+      INSERT INTO atividades ("id", "empresaId", "usuarioId", "projetoId", "nome", "descricao", "cor", "dataCriacao", "dataAtualizacao")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
     `;
     const { rows } = await pool.query(query, [
-      a.id, req.user.id, a.projetoId, a.nome, a.descricao || '',
+      a.id, req.user.empresaId, req.user.id, a.projetoId, a.nome, a.descricao || '',
       a.cor || '#f97316', a.dataCriacao || new Date().toISOString(), a.dataAtualizacao || new Date().toISOString()
     ]);
     res.json(rows[0]);
@@ -287,10 +344,10 @@ app.put('/api/atividades/:id', async (req, res) => {
   try {
     const query = `
       UPDATE atividades SET "nome" = $1, "descricao" = $2, "cor" = $3, "dataAtualizacao" = $4
-      WHERE "id" = $5 AND "usuarioId" = $6 RETURNING *;
+      WHERE "id" = $5 AND "empresaId" = $6 RETURNING *;
     `;
     const { rows } = await pool.query(query, [
-      a.nome, a.descricao || '', a.cor || '#f97316', new Date().toISOString(), req.params.id, req.user.id
+      a.nome, a.descricao || '', a.cor || '#f97316', new Date().toISOString(), req.params.id, req.user.empresaId
     ]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -298,7 +355,7 @@ app.put('/api/atividades/:id', async (req, res) => {
 
 app.delete('/api/atividades/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM atividades WHERE "id" = $1 AND "usuarioId" = $2', [req.params.id, req.user.id]);
+    await pool.query('DELETE FROM atividades WHERE "id" = $1 AND "empresaId" = $2', [req.params.id, req.user.empresaId]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -309,11 +366,11 @@ app.get('/api/tarefas/:projetoId', async (req, res) => {
     const atividadeId = req.query.atividadeId;
     let query, params;
     if (atividadeId) {
-      query = 'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "atividadeId" = $2 AND "usuarioId" = $3 ORDER BY "ordem" ASC';
-      params = [req.params.projetoId, atividadeId, req.user.id];
+      query = 'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "atividadeId" = $2 AND "empresaId" = $3 ORDER BY "ordem" ASC';
+      params = [req.params.projetoId, atividadeId, req.user.empresaId];
     } else {
-      query = 'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "usuarioId" = $2 ORDER BY "ordem" ASC';
-      params = [req.params.projetoId, req.user.id];
+      query = 'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "empresaId" = $2 ORDER BY "ordem" ASC';
+      params = [req.params.projetoId, req.user.empresaId];
     }
     const { rows } = await pool.query(query, params);
     res.json(rows);
@@ -324,11 +381,11 @@ app.post('/api/tarefas', async (req, res) => {
   const t = req.body;
   try {
     const query = `
-      INSERT INTO tarefas ("id", "usuarioId", "projetoId", "atividadeId", "coluna", "titulo", "descricao", "ordem", "dataInicio", "dataPrevisao", "dataEntrega", "dataCriacao", "dataAtualizacao")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *;
+      INSERT INTO tarefas ("id", "empresaId", "usuarioId", "projetoId", "atividadeId", "responsavelId", "coluna", "titulo", "descricao", "ordem", "dataInicio", "dataPrevisao", "dataEntrega", "dataCriacao", "dataAtualizacao")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *;
     `;
     const { rows } = await pool.query(query, [
-      t.id, req.user.id, t.projetoId, t.atividadeId || null, t.coluna || 'Backlog', t.titulo, t.descricao || '',
+      t.id, req.user.empresaId, req.user.id, t.projetoId, t.atividadeId || null, t.responsavelId || null, t.coluna || 'Backlog', t.titulo, t.descricao || '',
       t.ordem || 0, t.dataInicio || null, t.dataPrevisao || null, t.dataEntrega || null,
       t.dataCriacao || new Date().toISOString(), t.dataAtualizacao || new Date().toISOString()
     ]);
@@ -342,19 +399,19 @@ app.put('/api/tarefas/:id', async (req, res) => {
     const query = `
       UPDATE tarefas SET 
         "coluna" = $1, "titulo" = $2, "descricao" = $3, "ordem" = $4,
-        "dataInicio" = $5, "dataPrevisao" = $6, "dataEntrega" = $7, "dataAtualizacao" = $8
-      WHERE "id" = $9 AND "usuarioId" = $10 RETURNING *;
+        "dataInicio" = $5, "dataPrevisao" = $6, "dataEntrega" = $7, "dataAtualizacao" = $8,
+        "responsavelId" = $9
+      WHERE "id" = $10 AND "empresaId" = $11 RETURNING *;
     `;
     const { rows } = await pool.query(query, [
       t.coluna, t.titulo, t.descricao, t.ordem,
       t.dataInicio || null, t.dataPrevisao || null, t.dataEntrega || null,
-      new Date().toISOString(), req.params.id, req.user.id
+      new Date().toISOString(), t.responsavelId || null, req.params.id, req.user.empresaId
     ]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Reordenação em lote (Drag & Drop)
 app.put('/api/tarefas-reordenar', async (req, res) => {
   const { tarefas } = req.body;
   const client = await pool.connect();
@@ -362,8 +419,8 @@ app.put('/api/tarefas-reordenar', async (req, res) => {
     await client.query('BEGIN');
     for (const t of tarefas) {
       await client.query(
-        'UPDATE tarefas SET "coluna" = $1, "ordem" = $2, "dataAtualizacao" = $3 WHERE "id" = $4 AND "usuarioId" = $5',
-        [t.coluna, t.ordem, new Date().toISOString(), t.id, req.user.id]
+        'UPDATE tarefas SET "coluna" = $1, "ordem" = $2, "dataAtualizacao" = $3 WHERE "id" = $4 AND "empresaId" = $5',
+        [t.coluna, t.ordem, new Date().toISOString(), t.id, req.user.empresaId]
       );
     }
     await client.query('COMMIT');
@@ -378,15 +435,24 @@ app.put('/api/tarefas-reordenar', async (req, res) => {
 
 app.delete('/api/tarefas/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM tarefas WHERE "id" = $1 AND "usuarioId" = $2', [req.params.id, req.user.id]);
+    await pool.query('DELETE FROM tarefas WHERE "id" = $1 AND "empresaId" = $2', [req.params.id, req.user.empresaId]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // --- LANÇAMENTOS ---
+// REGRA: Admin vê tudo da empresa, membro vê apenas os seus
 app.get('/api/lancamentos', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM lancamentos WHERE "usuarioId" = $1', [req.user.id]);
+    let query, params;
+    if (req.user.role === 'admin') {
+        query = 'SELECT * FROM lancamentos WHERE "empresaId" = $1';
+        params = [req.user.empresaId];
+    } else {
+        query = 'SELECT * FROM lancamentos WHERE "empresaId" = $1 AND "usuarioId" = $2';
+        params = [req.user.empresaId, req.user.id];
+    }
+    const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -395,10 +461,10 @@ app.post('/api/lancamentos', async (req, res) => {
   const l = req.body;
   try {
     const query = `
-      INSERT INTO lancamentos ("id", "projetoId", "data", "horaInicio", "horaFim", "duracao", "atividade", "descricao", "valorTotal", "dataLancamento", "dataAtualizacao", "usuarioId")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *;
+      INSERT INTO lancamentos ("id", "projetoId", "data", "horaInicio", "horaFim", "duracao", "atividade", "descricao", "valorTotal", "dataLancamento", "dataAtualizacao", "empresaId", "usuarioId")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *;
     `;
-    const { rows } = await pool.query(query, [l.id, l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataLancamento, l.dataAtualizacao, req.user.id]);
+    const { rows } = await pool.query(query, [l.id, l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataLancamento, l.dataAtualizacao, req.user.empresaId, req.user.id]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -406,24 +472,26 @@ app.post('/api/lancamentos', async (req, res) => {
 app.put('/api/lancamentos/:id', async (req, res) => {
   const l = req.body;
   try {
+    // Apenas quem criou (ou o sistema, se permitirmos admin) pode editar. 
+    // Por hora, apenas o próprio criador pode editar.
     const query = `
       UPDATE lancamentos SET 
         "projetoId" = $1, "data" = $2, "horaInicio" = $3, "horaFim" = $4, "duracao" = $5, "atividade" = $6, "descricao" = $7, "valorTotal" = $8, "dataAtualizacao" = $9
-      WHERE "id" = $10 AND "usuarioId" = $11 RETURNING *;
+      WHERE "id" = $10 AND "empresaId" = $11 AND "usuarioId" = $12 RETURNING *;
     `;
-    const { rows } = await pool.query(query, [l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataAtualizacao, req.params.id, req.user.id]);
+    const { rows } = await pool.query(query, [l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataAtualizacao, req.params.id, req.user.empresaId, req.user.id]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/lancamentos/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM lancamentos WHERE "id" = $1 AND "usuarioId" = $2', [req.params.id, req.user.id]);
+    await pool.query('DELETE FROM lancamentos WHERE "id" = $1 AND "empresaId" = $2 AND "usuarioId" = $3', [req.params.id, req.user.empresaId, req.user.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- MIGRAÇÃO Upsert Islada ---
+// --- MIGRAÇÃO Upsert ---
 app.post('/api/migrar', async (req, res) => {
   const { clientes, projetos, lancamentos } = req.body;
   const client = await pool.connect();
@@ -432,38 +500,38 @@ app.post('/api/migrar', async (req, res) => {
     
     for (const c of (clientes || [])) {
       await client.query(`
-        INSERT INTO clientes ("id", "nome", "email", "telefone", "dataCadastro", "dataAtualizacao", "usuarioId", "diaFechamento")
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO clientes ("id", "nome", "email", "telefone", "dataCadastro", "dataAtualizacao", "empresaId", "usuarioId", "diaFechamento")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT ("id") DO UPDATE SET
           "nome" = EXCLUDED."nome", "email" = EXCLUDED."email",
           "telefone" = EXCLUDED."telefone", "dataAtualizacao" = EXCLUDED."dataAtualizacao",
-          "usuarioId" = EXCLUDED."usuarioId", "diaFechamento" = EXCLUDED."diaFechamento";
-      `, [c.id, c.nome, c.email, c.telefone, c.dataCadastro, c.dataAtualizacao, req.user.id, c.diaFechamento || 17]);
+          "empresaId" = EXCLUDED."empresaId", "diaFechamento" = EXCLUDED."diaFechamento";
+      `, [c.id, c.nome, c.email, c.telefone, c.dataCadastro, c.dataAtualizacao, req.user.empresaId, req.user.id, c.diaFechamento || 17]);
     }
     
     for (const p of (projetos || [])) {
       const colunasDefault = JSON.stringify(p.colunasKanban || ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído']);
       await client.query(`
-        INSERT INTO projetos ("id", "clienteId", "nome", "descricao", "valorHora", "dataCadastro", "dataAtualizacao", "usuarioId", "colunasKanban")
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO projetos ("id", "clienteId", "nome", "descricao", "valorHora", "dataCadastro", "dataAtualizacao", "empresaId", "usuarioId", "colunasKanban")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT ("id") DO UPDATE SET
           "clienteId" = EXCLUDED."clienteId", "nome" = EXCLUDED."nome",
           "descricao" = EXCLUDED."descricao", "valorHora" = EXCLUDED."valorHora",
-          "dataAtualizacao" = EXCLUDED."dataAtualizacao", "usuarioId" = EXCLUDED."usuarioId",
+          "dataAtualizacao" = EXCLUDED."dataAtualizacao", "empresaId" = EXCLUDED."empresaId",
           "colunasKanban" = EXCLUDED."colunasKanban";
-      `, [p.id, p.clienteId, p.nome, p.descricao, p.valorHora, p.dataCadastro, p.dataAtualizacao, req.user.id, colunasDefault]);
+      `, [p.id, p.clienteId, p.nome, p.descricao, p.valorHora, p.dataCadastro, p.dataAtualizacao, req.user.empresaId, req.user.id, colunasDefault]);
     }
     
     for (const l of (lancamentos || [])) {
       await client.query(`
-        INSERT INTO lancamentos ("id", "projetoId", "data", "horaInicio", "horaFim", "duracao", "atividade", "descricao", "valorTotal", "dataLancamento", "dataAtualizacao", "usuarioId")
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        INSERT INTO lancamentos ("id", "projetoId", "data", "horaInicio", "horaFim", "duracao", "atividade", "descricao", "valorTotal", "dataLancamento", "dataAtualizacao", "empresaId", "usuarioId")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         ON CONFLICT ("id") DO UPDATE SET
           "projetoId" = EXCLUDED."projetoId", "data" = EXCLUDED."data",
           "horaInicio" = EXCLUDED."horaInicio", "horaFim" = EXCLUDED."horaFim",
           "duracao" = EXCLUDED."duracao", "atividade" = EXCLUDED."atividade", "descricao" = EXCLUDED."descricao",
-          "valorTotal" = EXCLUDED."valorTotal", "dataAtualizacao" = EXCLUDED."dataAtualizacao", "usuarioId" = EXCLUDED."usuarioId";
-      `, [l.id, l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataLancamento, l.dataAtualizacao, req.user.id]);
+          "valorTotal" = EXCLUDED."valorTotal", "dataAtualizacao" = EXCLUDED."dataAtualizacao", "empresaId" = EXCLUDED."empresaId";
+      `, [l.id, l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataLancamento, l.dataAtualizacao, req.user.empresaId, req.user.id]);
     }
     
     await client.query('COMMIT');

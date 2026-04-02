@@ -15,11 +15,24 @@ class ControleHoras {
         this.editandoProjeto    = null;
         this.editandoLancamento = null;
         this.dadosRelatorio     = null;
+        this.usuario            = null;
+        this.equipe             = [];
 
         this.init();
     }
 
+    parseJwt(token) {
+        try {
+            return JSON.parse(atob(token.split('.')[1]));
+        } catch (e) {
+            return null;
+        }
+    }
+
     async init() {
+        if (this.token) {
+            this.usuario = this.parseJwt(this.token);
+        }
         this.setupEventListeners();
         if (this.token) {
             document.getElementById('loginOverlay').style.display = 'none';
@@ -32,6 +45,9 @@ class ControleHoras {
     async iniciarSistema() {
         if(this.carregarDadosAPI) {
             await this.carregarDadosAPI();
+        }
+        if(this.carregarEquipe) {
+            await this.carregarEquipe();
         }
         this.carregarDados();
         this.atualizarDashboard();

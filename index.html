@@ -95,7 +95,7 @@
         <div class="flex w-8 h-8 rounded-full items-center justify-center bg-gradient-to-tr from-orange-500 to-amber-400 shadow-lg shadow-orange-500/20">
             <i class="bi bi-clock-fill text-xs text-black"></i>
         </div>
-        <span class="text-base font-semibold tracking-tight">Controle de Horas</span>
+        <span id="userDisplayName" class="text-base font-semibold tracking-tight">Controle de Horas</span>
     </div>
     <div class="flex items-center gap-2">
         <button onclick="realizarLogout()" class="btn-ghost flex items-center py-1.5 px-3 text-sm" title="Sair do Sistema">
@@ -136,6 +136,9 @@
         </button>
         <button class="nav-item" data-section="kanban" onclick="navegarPara('kanban')">
             <span class="nav-icon"><i class="bi bi-kanban"></i></span><span>Kanban</span>
+        </button>
+        <button class="nav-item" data-section="equipe" onclick="navegarPara('equipe')">
+            <span class="nav-icon"><i class="bi bi-person-badge"></i></span><span>Minha Equipe</span>
         </button>
     </aside>
 
@@ -523,6 +526,65 @@
             </div>
         </section>
 
+        <!-- ══ Equipe ══ -->
+        <section id="section-equipe" class="page-section">
+            <div class="mb-8">
+                <div class="inline-flex items-center gap-2 mb-3">
+                    <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
+                    <span class="text-xs font-bold tracking-widest uppercase text-orange-500/80">Gestão SaaS</span>
+                </div>
+                <h1 class="text-4xl font-medium tracking-tighter">Minha Equipe</h1>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <div class="lg:col-span-2">
+                    <div class="glass-card mb-6">
+                        <div class="card-header"><i class="bi bi-person-plus mr-2 text-orange-500/70"></i>Cadastrar Membro</div>
+                        <div class="p-6">
+                            <form id="formEquipe" onsubmit="event.preventDefault(); controleHoras.salvarMembroEquipe();">
+                                <input type="hidden" id="equipeId">
+                                <div class="mb-4">
+                                    <label class="form-label">Nome Completo</label>
+                                    <input type="text" class="form-control" id="equipeNome" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label">Usuário de Acesso (Login)</label>
+                                    <input type="text" class="form-control" id="equipeUser" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label">Senha <span class="text-xs text-neutral-500">(Deixe em branco para não alterar, se editando)</span></label>
+                                    <input type="password" class="form-control" id="equipePass">
+                                </div>
+                                <div class="mb-6">
+                                    <label class="form-label">Nível de Acesso</label>
+                                    <select class="form-control" id="equipeRole">
+                                        <option value="membro">Membro (Somente os próprios lançamentos)</option>
+                                        <option value="admin">Administrador (Vê todas as horas e membros)</option>
+                                    </select>
+                                </div>
+                                <div style="display:flex;gap:8px;">
+                                    <button type="submit" class="btn-primary" style="flex:1;">
+                                        <div class="points_wrapper"><div class="point"></div></div>
+                                        <i class="bi bi-check-lg mr-1 btn-icon"></i><span class="btn-label">Salvar</span>
+                                    </button>
+                                    <button type="button" class="btn-ghost" onclick="controleHoras.limparFormEquipe()">Limpar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="lg:col-span-3">
+                    <div class="glass-card">
+                        <div class="card-header border-b border-white/5"><i class="bi bi-people mr-2 text-orange-500/70"></i>Membros Ativos</div>
+                        <div id="listaEquipe" class="divide-y divide-white/5">
+                            <!-- JS popula aqui -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
     </main>
 </div>
 
@@ -543,10 +605,19 @@
                 <label class="form-label" for="tarefaDescricao">Descrição</label>
                 <textarea class="form-control" id="tarefaDescricao" rows="3" placeholder="Detalhes da tarefa..."></textarea>
             </div>
-            <div class="mb-4">
-                <label class="form-label" for="tarefaColuna">Coluna / Status</label>
-                <select class="form-control" id="tarefaColuna"></select>
+            <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label" for="tarefaColuna">Coluna</label>
+                    <select class="form-control" id="tarefaColuna"></select>
+                </div>
+                <div>
+                    <label class="form-label" for="tarefaResponsavel">Responsável</label>
+                    <select class="form-control" id="tarefaResponsavel">
+                        <option value="">Nenhum</option>
+                    </select>
+                </div>
             </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
                 <div>
                     <label class="form-label" for="tarefaDataInicio">Data Início</label>
@@ -686,6 +757,9 @@
     <button class="mobile-nav-item flex-1" data-section="kanban" onclick="navegarPara('kanban')">
         <i class="bi bi-kanban text-lg"></i><span>Kanban</span>
     </button>
+    <button class="mobile-nav-item flex-1" data-section="equipe" onclick="navegarPara('equipe')">
+        <i class="bi bi-person-badge text-lg"></i><span>Equipe</span>
+    </button>
 </nav>
 
 <!-- Toast container -->
@@ -710,6 +784,7 @@
 <script src="js/dashboard.js"></script>
 <script src="js/relatorios.js"></script>
 <script src="js/kanban.js"></script>
+<script src="js/equipe.js"></script>
 <script src="js/main.js"></script>
 
 <!-- Custom Select init – portal-based, always renders above table/card stacking contexts -->

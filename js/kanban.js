@@ -236,6 +236,21 @@ Object.assign(ControleHoras.prototype, {
             datesHtml += '</div>';
         }
 
+        let responsavelHtml = '';
+        if (tarefa.responsavelId && this.equipe) {
+            const resp = this.equipe.find(u => u.id == tarefa.responsavelId);
+            if (resp) {
+                const init = resp.nome.charAt(0).toUpperCase();
+                responsavelHtml = `
+                <div class="flex items-center gap-1 mt-2 text-xs text-neutral-400" title="Responsável: ${resp.nome}">
+                    <div class="w-5 h-5 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold text-[10px]">
+                        ${init}
+                    </div>
+                    <span class="truncate pr-1">${resp.nome.split(' ')[0]}</span>
+                </div>`;
+            }
+        }
+
         return `
         <div class="kanban-card ${badgeClass ? 'kanban-card-atrasado' : ''}"
              draggable="true"
@@ -246,6 +261,7 @@ Object.assign(ControleHoras.prototype, {
             <div class="kanban-card-title">${this.escapeHtml(tarefa.titulo)}</div>
             ${tarefa.descricao ? `<div class="kanban-card-desc">${this.escapeHtml(tarefa.descricao).substring(0, 80)}${tarefa.descricao.length > 80 ? '…' : ''}</div>` : ''}
             ${datesHtml}
+            ${responsavelHtml}
         </div>`;
     },
 
@@ -300,6 +316,7 @@ Object.assign(ControleHoras.prototype, {
             document.getElementById('tarefaTitulo').value = t.titulo;
             document.getElementById('tarefaDescricao').value = t.descricao || '';
             document.getElementById('tarefaColuna').value = t.coluna;
+            document.getElementById('tarefaResponsavel').value = t.responsavelId || '';
             setDate('tarefaDataInicio', t.dataInicio);
             setDate('tarefaDataPrevisao', t.dataPrevisao);
             setDate('tarefaDataEntrega', t.dataEntrega);
@@ -308,6 +325,7 @@ Object.assign(ControleHoras.prototype, {
         } else {
             document.getElementById('tarefaId').value = '';
             document.getElementById('tarefaColuna').value = colunaDefault || 'Backlog';
+            document.getElementById('tarefaResponsavel').value = '';
             setDate('tarefaDataInicio', '');
             setDate('tarefaDataPrevisao', '');
             setDate('tarefaDataEntrega', '');
@@ -349,6 +367,7 @@ Object.assign(ControleHoras.prototype, {
             titulo,
             descricao: document.getElementById('tarefaDescricao').value.trim(),
             coluna: document.getElementById('tarefaColuna').value,
+            responsavelId: document.getElementById('tarefaResponsavel').value || null,
             dataInicio: document.getElementById('tarefaDataInicio').value || null,
             dataPrevisao: document.getElementById('tarefaDataPrevisao').value || null,
             dataEntrega: document.getElementById('tarefaDataEntrega').value || null,
