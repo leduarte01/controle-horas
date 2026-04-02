@@ -320,7 +320,7 @@ Object.assign(ControleHoras.prototype, {
     },
 
     // ─── Modal de Tarefa (editar / criar via backlog) ───
-    abrirModalTarefa(tarefaId, colunaDefault, tipoDefault, parentIdDefault) {
+    async abrirModalTarefa(tarefaId, colunaDefault, tipoDefault, parentIdDefault) {
         this.atualizarSelectResponsavelKanban();
 
         const modal = document.getElementById('modalTarefa');
@@ -375,6 +375,21 @@ Object.assign(ControleHoras.prototype, {
             document.getElementById('comentariosSection').style.display = 'none';
         }
 
+        // Carrega os itens do projeto para popular o select pai (sempre para garantir dados frescos)
+        if (projetoId) {
+            try {
+                const resp = await fetch(`${this.apiBaseUrl}/tarefas/${projetoId}`, {
+                    headers: { 'Authorization': 'Bearer ' + this.token }
+                });
+                const items = await resp.json();
+                // Substitui os itens deste projeto no backlogItems, mantendo outros projetos
+                this.backlogItems = [
+                    ...(this.backlogItems || []).filter(i => String(i.projetoId) !== String(projetoId)),
+                    ...items
+                ];
+            } catch (_) {}
+        }
+
         // Colunas do projeto da tarefa (ou projeto do filtro, ou default)
         const selColuna = document.getElementById('tarefaColuna');
         selColuna.innerHTML = '';
@@ -392,7 +407,7 @@ Object.assign(ControleHoras.prototype, {
             : (colunaDefault || 'Backlog');
         selColuna.value = colVal || 'Backlog';
 
-        // Clear atividade select (kept in HTML for compatibility with lancamentos)
+        // Clear atividade select (kept in HTML for compatibility com lancamentos)
         const selAtiv = document.getElementById('tarefaAtividadeId');
         if (selAtiv) selAtiv.innerHTML = '<option value="">Sem atividade</option>';
 
@@ -642,6 +657,9 @@ Object.assign(ControleHoras.prototype, {
             });
             if (!r.ok) throw new Error();
             const criado = await r.json();
+            // Adiciona ao backlogItems para o select pai funcionar ao editar
+            if (!this.backlogItems) this.backlogItems = [];
+            if (!this.backlogItems.find(i => i.id === criado.id)) this.backlogItems.push(criado);
             const selEpico = document.getElementById('criarTarefaEpico');
             const opt = document.createElement('option');
             opt.value = criado.id; opt.textContent = titulo.trim();
@@ -669,6 +687,9 @@ Object.assign(ControleHoras.prototype, {
             });
             if (!r.ok) throw new Error();
             const criado = await r.json();
+            // Adiciona ao backlogItems para o select pai funcionar ao editar
+            if (!this.backlogItems) this.backlogItems = [];
+            if (!this.backlogItems.find(i => i.id === criado.id)) this.backlogItems.push(criado);
             const sel = document.getElementById('criarTarefaFeature');
             const opt = document.createElement('option');
             opt.value = criado.id; opt.textContent = titulo;
