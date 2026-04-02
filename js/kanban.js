@@ -26,6 +26,9 @@ Object.assign(ControleHoras.prototype, {
     kanbanAtividadeAtual: null,
     kanbanTarefas: [],
     kanbanAtividades: [],
+    currentKanbanView: 'board',
+    backlogItems: [],
+    backlogExpandedNodes: null,
 
     // ─── Inicialização do Kanban ───
     async inicializarKanban() {
@@ -112,14 +115,18 @@ Object.assign(ControleHoras.prototype, {
     async onKanbanAtividadeChange(atividadeId) {
         if (!atividadeId) {
             this.kanbanAtividadeAtual = null;
-            this._resetKanbanBoard();
+            if (this.currentKanbanView === 'board' && this.kanbanProjetoAtual) {
+                await this.carregarKanban(this.kanbanProjetoAtual.id, null);
+            }
             this._updateButtonStates();
             return;
         }
 
         this.kanbanAtividadeAtual = this.kanbanAtividades.find(a => a.id === atividadeId);
         this._updateButtonStates();
-        await this.carregarKanban(this.kanbanProjetoAtual.id, atividadeId);
+        if (this.currentKanbanView === 'board') {
+            await this.carregarKanban(this.kanbanProjetoAtual.id, atividadeId);
+        }
     },
 
     _resetProjetoSelect() {
@@ -131,28 +138,43 @@ Object.assign(ControleHoras.prototype, {
 
     _resetAtividadeSelect() {
         const sel = document.getElementById('kanbanAtividadeSelect');
-        sel.innerHTML = '<option value="">Selecione uma atividade</option>';
+        sel.innerHTML = '<option value="">Todas as atividades</option>';
         sel.disabled = true;
         this.kanbanAtividadeAtual = null;
         this.kanbanAtividades = [];
     },
 
     _resetKanbanBoard() {
-        document.getElementById('kanbanBoard').innerHTML =
-            '<p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente, projeto e atividade para visualizar o Kanban.</p>';
+        const kb = document.getElementById('kanbanBoard');
+        if (kb) kb.innerHTML = '<p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente e projeto para visualizar o Board.</p>';
+        const bt = document.getElementById('backlogTree');
+        if (bt) bt.innerHTML = '<p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente e projeto para visualizar o Backlog.</p>';
     },
 
     _updateButtonStates() {
         const hasProjeto = !!this.kanbanProjetoAtual;
-        // const hasAtividade = !!this.kanbanAtividadeAtual;
+        const isBoardView = this.currentKanbanView === 'board';
         document.getElementById('btnNovaAtividade').disabled = !hasProjeto;
-        // As colunas são vinculadas ao projeto, então basta ter o projeto selecionado
-        document.getElementById('btnEditarColunas').disabled = !hasProjeto;
+
+        const btnNovoEpico = document.getElementById('btnNovoEpico');
+        if (btnNovoEpico) {
+            btnNovoEpico.disabled = !hasProjeto;
+            btnNovoEpico.style.display = isBoardView ? 'none' : 'inline-flex';
+        }
+        const btnEditarColunas = document.getElementById('btnEditarColunas');
+        if (btnEditarColunas) {
+            btnEditarColunas.disabled = !hasProjeto;
+            btnEditarColunas.style.display = isBoardView ? 'inline-flex' : 'none';
+        }
+        const atividadeWrap = document.getElementById('kanbanAtividadeWrap');
+        if (atividadeWrap) {
+            atividadeWrap.style.display = isBoardView ? '' : 'none';
+        }
     },
 
-    // ─── Carregar Kanban de um projeto + atividade ───
+    // ─── Carregar Kanban de um projeto + atividade (atividade opcional) ───
     async carregarKanban(projetoId, atividadeId) {
-        if (!projetoId || !atividadeId) {
+        if (!projetoId) {
             this._resetKanbanBoard();
             return;
         }
@@ -160,7 +182,10 @@ Object.assign(ControleHoras.prototype, {
         if (!this.kanbanProjetoAtual) return;
 
         try {
-            const resp = await fetch(`${this.apiBaseUrl}/tarefas/${projetoId}?atividadeId=${atividadeId}`, {
+            const url = atividadeId
+                ? `${this.apiBaseUrl}/tarefas/${projetoId}?atividadeId=${atividadeId}`
+                : `${this.apiBaseUrl}/tarefas/${projetoId}`;
+            const resp = await fetch(url, {
                 headers: { 'Authorization': 'Bearer ' + this.token }
             });
             this.kanbanTarefas = await resp.json();
@@ -317,7 +342,7 @@ Object.assign(ControleHoras.prototype, {
         };
 
         // Determine project for parent select population
-        const projetoId = this.kanbanProjetoAtual?.id || this.backlogProjeto?.id || null;
+        const projetoId = this.kanbanProjetoAtual?.id || null;
 
         if (tarefaId) {
             // Try kanban list first, then backlog items
@@ -361,7 +386,7 @@ Object.assign(ControleHoras.prototype, {
         // Popula select de colunas
         const selColuna = document.getElementById('tarefaColuna');
         selColuna.innerHTML = '';
-        let colunas = this.kanbanProjetoAtual?.colunasKanban || this.backlogProjeto?.colunasKanban;
+        let colunas = this.kanbanProjetoAtual?.colunasKanban;
         if (typeof colunas === 'string') { try { colunas = JSON.parse(colunas); } catch(e) { colunas = []; }}
         if (!Array.isArray(colunas)) colunas = ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído'];
         colunas.forEach(c => {
@@ -370,11 +395,30 @@ Object.assign(ControleHoras.prototype, {
             selColuna.appendChild(opt);
         });
         if (tarefaId) {
-            const t = this.kanbanTarefas.find(x => x.id === tarefaId)
-                   || (this.backlogItems || []).find(x => x.id === tarefaId);
-            if (t) selColuna.value = t.coluna || 'Backlog';
+            const tCol = this.kanbanTarefas.find(x => x.id === tarefaId)
+                       || (this.backlogItems || []).find(x => x.id === tarefaId);
+            if (tCol) selColuna.value = tCol.coluna || 'Backlog';
         } else {
             selColuna.value = colunaDefault || 'Backlog';
+        }
+
+        // Popula select de atividade
+        const selAtividadeModal = document.getElementById('tarefaAtividadeId');
+        if (selAtividadeModal) {
+            selAtividadeModal.innerHTML = '<option value="">Sem atividade</option>';
+            (this.kanbanAtividades || []).forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.textContent = a.nome;
+                selAtividadeModal.appendChild(opt);
+            });
+            if (tarefaId) {
+                const tAtiv = this.kanbanTarefas.find(x => x.id === tarefaId)
+                           || (this.backlogItems || []).find(x => x.id === tarefaId);
+                selAtividadeModal.value = tAtiv?.atividadeId || '';
+            } else {
+                selAtividadeModal.value = this.kanbanAtividadeAtual?.id || '';
+            }
         }
 
         // Populate parent select based on tipo
@@ -392,7 +436,7 @@ Object.assign(ControleHoras.prototype, {
         const titulo = document.getElementById('tarefaTitulo').value.trim();
         if (!titulo) { this.mostrarToast('Informe o título da tarefa.', 'error'); return; }
 
-        const projetoId = this.kanbanProjetoAtual?.id || this.backlogProjeto?.id;
+        const projetoId = this.kanbanProjetoAtual?.id;
         if (!projetoId) { this.mostrarToast('Nenhum projeto selecionado.', 'error'); return; }
 
         const tagsRaw = document.getElementById('tarefaTagsValue').value;
@@ -405,7 +449,7 @@ Object.assign(ControleHoras.prototype, {
             dataPrevisao: document.getElementById('tarefaDataPrevisao').value || null,
             dataEntrega: document.getElementById('tarefaDataEntrega').value || null,
             projetoId,
-            atividadeId: this.kanbanAtividadeAtual?.id || null,
+            atividadeId: document.getElementById('tarefaAtividadeId')?.value || null,
             tipo: document.getElementById('tarefaTipo').value || 'task',
             parentId: document.getElementById('tarefaParentId').value || null,
             prioridade: parseInt(document.getElementById('tarefaPrioridade').value) || 3,
@@ -436,10 +480,13 @@ Object.assign(ControleHoras.prototype, {
             }
 
             this.fecharModalTarefa();
-            if (this.kanbanAtividadeAtual && this.kanbanProjetoAtual) {
-                await this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual.id);
+            if (this.kanbanProjetoAtual) {
+                if (this.currentKanbanView === 'board') {
+                    await this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual?.id || null);
+                } else {
+                    await this._carregarBacklogKanban();
+                }
             }
-            await this._refreshBacklogIfVisible();
         } catch (e) {
             this.mostrarToast('Erro ao salvar tarefa.', 'error');
         }
@@ -464,7 +511,11 @@ Object.assign(ControleHoras.prototype, {
             });
             this.fecharModalTarefa();
             this.mostrarToast('Tarefa excluída!', 'success');
-            await this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual?.id);
+            if (this.currentKanbanView === 'board') {
+                await this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual?.id || null);
+            } else {
+                await this._carregarBacklogKanban();
+            }
         } catch (e) {
             this.mostrarToast('Erro ao excluir tarefa.', 'error');
         }
@@ -937,6 +988,238 @@ Object.assign(ControleHoras.prototype, {
             this.mostrarToast('Colunas atualizadas!', 'success');
         } catch (e) {
             this.mostrarToast('Erro ao salvar colunas.', 'error');
+        }
+    },
+
+    // ─── View Switcher: Board ↔ Backlog ───
+    switchKanbanView(view) {
+        this.currentKanbanView = view;
+        const boardDiv   = document.getElementById('kanbanBoard');
+        const backlogDiv = document.getElementById('backlogTree');
+        const tabBoard   = document.getElementById('tabBoard');
+        const tabBacklog = document.getElementById('tabBacklog');
+
+        if (boardDiv)   boardDiv.style.display  = view === 'board'   ? '' : 'none';
+        if (backlogDiv) backlogDiv.style.display = view === 'backlog' ? '' : 'none';
+
+        if (tabBoard) {
+            tabBoard.style.borderBottom = view === 'board' ? '2px solid #f97316' : '2px solid transparent';
+            tabBoard.style.color        = view === 'board' ? '#f97316' : 'rgba(255,255,255,0.4)';
+        }
+        if (tabBacklog) {
+            tabBacklog.style.borderBottom = view === 'backlog' ? '2px solid #f97316' : '2px solid transparent';
+            tabBacklog.style.color        = view === 'backlog' ? '#f97316' : 'rgba(255,255,255,0.4)';
+        }
+
+        this._updateButtonStates();
+
+        if (this.kanbanProjetoAtual) {
+            if (view === 'backlog') {
+                this._carregarBacklogKanban();
+            } else {
+                this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual?.id || null);
+            }
+        }
+    },
+
+    // ─── Backlog (merged from backlog.js) ───
+    _initBacklogState() {
+        if (!this.backlogExpandedNodes) {
+            this.backlogExpandedNodes = new Set();
+        }
+    },
+
+    async _carregarBacklogKanban() {
+        this._initBacklogState();
+        const projetoId = this.kanbanProjetoAtual?.id;
+        if (!projetoId) return;
+
+        const bt = document.getElementById('backlogTree');
+        if (bt) bt.innerHTML = '<p class="text-neutral-500 text-center py-10 text-sm"><i class="bi bi-arrow-repeat mr-2"></i>Carregando backlog...</p>';
+        this.backlogItems = [];
+        this.backlogExpandedNodes.clear();
+
+        try {
+            const resp = await fetch(`${this.apiBaseUrl}/tarefas/${projetoId}`, {
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            this.backlogItems = await resp.json();
+            this.backlogItems.filter(i => i.tipo === 'epic').forEach(i => this.backlogExpandedNodes.add(i.id));
+        } catch (e) {
+            this.backlogItems = [];
+        }
+        this.renderizarBacklog();
+    },
+
+    construirArvore(items) {
+        const map = {};
+        const roots = [];
+        items.forEach(item => { map[item.id] = { ...item, children: [] }; });
+        items.forEach(item => {
+            if (item.parentId && map[item.parentId]) {
+                map[item.parentId].children.push(map[item.id]);
+            } else {
+                roots.push(map[item.id]);
+            }
+        });
+        const tipoOrdem = { epic: 0, feature: 1, userstory: 2, task: 3 };
+        const sortNodes = nodes => {
+            nodes.sort((a, b) => (tipoOrdem[a.tipo] || 3) - (tipoOrdem[b.tipo] || 3) || (a.titulo || '').localeCompare(b.titulo || ''));
+            nodes.forEach(n => sortNodes(n.children));
+        };
+        sortNodes(roots);
+        return roots;
+    },
+
+    renderizarBacklog() {
+        this._initBacklogState();
+        const container = document.getElementById('backlogTree');
+        if (!container) return;
+
+        if (!this.backlogItems.length) {
+            container.innerHTML = `
+                <div class="glass-card p-10 text-center">
+                    <i class="bi bi-inbox text-neutral-600" style="font-size:2.5rem;display:block;margin-bottom:12px;"></i>
+                    <p class="text-neutral-400 text-sm mb-4">Nenhum item no backlog.</p>
+                    <button type="button" class="btn-primary" onclick="controleHoras.criarEpico()">
+                        <i class="bi bi-plus-lg mr-1"></i>Criar primeiro Épico
+                    </button>
+                </div>`;
+            return;
+        }
+
+        const arvore = this.construirArvore(this.backlogItems);
+        const linhas = [];
+        const renderNos = (nos, nivel) => {
+            nos.forEach(no => {
+                linhas.push(this.renderizarNoBacklog(no, nivel));
+                if (this.backlogExpandedNodes.has(no.id) && no.children.length) {
+                    renderNos(no.children, nivel + 1);
+                }
+            });
+        };
+        renderNos(arvore, 0);
+
+        container.innerHTML = `
+            <div class="glass-card" style="overflow:hidden;">
+                <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;border-bottom:1px solid rgba(255,255,255,0.06);padding:8px 16px;" class="text-xs text-neutral-500 font-semibold uppercase tracking-wider">
+                    <span>Item</span><span class="text-center px-3">Status</span><span class="text-center px-3">Estimativa</span><span></span>
+                </div>
+                ${linhas.join('')}
+            </div>`;
+    },
+
+    renderizarNoBacklog(item, nivel) {
+        this._initBacklogState();
+        const TIPO_CONFIG = {
+            epic:      { icon: '👑', label: 'Épico',      color: '#f97316', childTipo: 'feature',   childLabel: 'Feature' },
+            feature:   { icon: '🎯', label: 'Feature',    color: '#3b82f6', childTipo: 'userstory',  childLabel: 'User Story' },
+            userstory: { icon: '📖', label: 'User Story', color: '#a855f7', childTipo: 'task',       childLabel: 'Task' },
+            task:      { icon: '✅', label: 'Task',       color: '#22c55e', childTipo: null,         childLabel: null }
+        };
+        const STATUS_COLORS = {
+            'Planejado':     'rgba(100,116,139,0.25)',
+            'Em Andamento':  'rgba(249,115,22,0.25)',
+            'Concluído':     'rgba(34,197,94,0.25)',
+        };
+        const config = TIPO_CONFIG[item.tipo] || TIPO_CONFIG.task;
+        const hasChildren = item.children && item.children.length > 0;
+        const isExpanded = this.backlogExpandedNodes.has(item.id);
+        const indent = nivel * 28;
+        const statusColor = STATUS_COLORS[item.status] || STATUS_COLORS['Planejado'];
+        const statusText = item.status || 'Planejado';
+
+        let responsavelHtml = '';
+        if (item.responsavelId && this.equipe) {
+            const resp = this.equipe.find(u => u.id == item.responsavelId);
+            if (resp) {
+                const iniciais = (resp.nome || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                responsavelHtml = `<span title="${this.escapeHtml(resp.nome)}" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:rgba(249,115,22,0.2);color:#f97316;font-size:10px;font-weight:700;margin-left:4px;">${iniciais}</span>`;
+            }
+        }
+
+        const estimativaHtml = item.estimativaHoras
+            ? `<span style="font-size:0.75rem;color:#94a3b8;">${item.estimativaHoras}h</span>`
+            : '<span style="color:rgba(255,255,255,0.15);font-size:0.75rem;">—</span>';
+
+        const chevron = hasChildren
+            ? `<button type="button" onclick="controleHoras.toggleNoBacklog('${item.id}')" style="background:none;border:none;cursor:pointer;color:#94a3b8;padding:0 4px;font-size:0.75rem;transition:.15s;">
+                    <i class="bi bi-chevron-${isExpanded ? 'down' : 'right'}"></i>
+               </button>`
+            : '<span style="display:inline-block;width:24px;"></span>';
+
+        const addFilhoBtn = config.childTipo
+            ? `<button type="button" onclick="controleHoras.adicionarFilhoBacklog('${item.id}','${config.childTipo}')" title="Adicionar ${config.childLabel}" style="background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px 6px;border-radius:4px;font-size:0.75rem;" class="hover:text-orange-400">
+                    <i class="bi bi-plus-lg"></i> ${config.childLabel}
+               </button>`
+            : '';
+
+        return `
+        <div style="display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:0;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,${nivel % 2 === 0 ? '0' : '0.015'});">
+            <div style="display:flex;align-items:center;padding-left:${indent}px;gap:4px;min-width:0;">
+                ${chevron}
+                <span style="font-size:0.85rem;margin-right:4px;">${config.icon}</span>
+                <span style="font-size:0.7rem;padding:1px 6px;border-radius:4px;background:rgba(${config.color.replace('#','').match(/.{2}/g).map(h=>parseInt(h,16)).join(',')},0.15);color:${config.color};margin-right:6px;white-space:nowrap;">${config.label}</span>
+                <button type="button" onclick="controleHoras.editarTarefaById('${item.id}')" style="background:none;border:none;cursor:pointer;color:#e2e8f0;text-align:left;font-size:0.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px;" class="hover:text-orange-400" title="${this.escapeHtml(item.titulo)}">
+                    ${this.escapeHtml(item.titulo)}
+                </button>
+                ${responsavelHtml}
+            </div>
+            <div class="px-3 text-center">
+                <select onchange="controleHoras.atualizarStatusBacklog('${item.id}', this.value)" style="background:${statusColor};border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#e2e8f0;font-size:0.72rem;padding:2px 8px;cursor:pointer;">
+                    <option value="Planejado"    ${statusText==='Planejado'   ?'selected':''}>Planejado</option>
+                    <option value="Em Andamento" ${statusText==='Em Andamento'?'selected':''}>Em Andamento</option>
+                    <option value="Concluído"    ${statusText==='Concluído'   ?'selected':''}>Concluído</option>
+                </select>
+            </div>
+            <div class="px-3 text-center">${estimativaHtml}</div>
+            <div style="display:flex;align-items:center;gap:4px;">${addFilhoBtn}</div>
+        </div>`;
+    },
+
+    toggleNoBacklog(id) {
+        this._initBacklogState();
+        if (this.backlogExpandedNodes.has(id)) {
+            this.backlogExpandedNodes.delete(id);
+        } else {
+            this.backlogExpandedNodes.add(id);
+        }
+        this.renderizarBacklog();
+    },
+
+    criarEpico() {
+        if (!this.kanbanProjetoAtual) return;
+        this.abrirModalTarefa(null, 'Backlog', 'epic', null);
+    },
+
+    adicionarFilhoBacklog(parentId, tipoFilho) {
+        if (!this.kanbanProjetoAtual) return;
+        this.abrirModalTarefa(null, 'Backlog', tipoFilho, parentId);
+    },
+
+    editarTarefaById(id) {
+        this.abrirModalTarefa(id, null, null, null);
+    },
+
+    async atualizarStatusBacklog(id, novoStatus) {
+        const item = this.backlogItems.find(i => i.id === id);
+        if (!item) return;
+        try {
+            await fetch(`${this.apiBaseUrl}/tarefas/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                body: JSON.stringify({ ...item, status: novoStatus })
+            });
+            item.status = novoStatus;
+            this.renderizarBacklog();
+        } catch (e) {
+            this.mostrarToast('Erro ao atualizar status.', 'error');
+        }
+    },
+
+    async _refreshBacklogIfVisible() {
+        if (this.currentKanbanView === 'backlog' && this.kanbanProjetoAtual) {
+            await this._carregarBacklogKanban();
         }
     }
 });

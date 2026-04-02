@@ -134,9 +134,6 @@
         <button class="nav-item" data-section="relatorios" onclick="navegarPara('relatorios')">
             <span class="nav-icon"><i class="bi bi-graph-up"></i></span><span>Relatórios</span>
         </button>
-        <button class="nav-item" data-section="backlog" onclick="navegarPara('backlog')">
-            <span class="nav-icon"><i class="bi bi-list-task"></i></span><span>Backlog</span>
-        </button>
         <button class="nav-item" data-section="kanban" onclick="navegarPara('kanban')">
             <span class="nav-icon"><i class="bi bi-kanban"></i></span><span>Kanban</span>
         </button>
@@ -485,7 +482,7 @@
 
         <!-- ══ Kanban ══ -->
         <section id="section-kanban" class="page-section">
-            <div class="mb-8">
+            <div class="mb-6">
                 <div class="inline-flex items-center gap-2 mb-3">
                     <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
                     <span class="text-xs font-bold tracking-widest uppercase text-orange-500/80">Gestão Visual</span>
@@ -493,9 +490,21 @@
                 <h1 class="text-4xl font-medium tracking-tighter">Kanban</h1>
             </div>
 
+            <!-- Tabs: Board | Backlog -->
+            <div class="flex gap-0 mb-5" style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                <button id="tabBoard" onclick="controleHoras.switchKanbanView('board')"
+                    style="padding:8px 20px;font-size:0.8125rem;font-weight:600;border:none;border-bottom:2px solid #f97316;color:#f97316;background:transparent;cursor:pointer;transition:all .2s;">
+                    <i class="bi bi-layout-three-columns mr-1"></i>Board
+                </button>
+                <button id="tabBacklog" onclick="controleHoras.switchKanbanView('backlog')"
+                    style="padding:8px 20px;font-size:0.8125rem;font-weight:600;border:none;border-bottom:2px solid transparent;color:rgba(255,255,255,0.4);background:transparent;cursor:pointer;transition:all .2s;">
+                    <i class="bi bi-list-task mr-1"></i>Backlog
+                </button>
+            </div>
+
             <!-- Filtro Cascata: Cliente → Projeto → Atividade -->
             <div class="glass-card mb-5">
-                <div class="card-header"><i class="bi bi-funnel mr-2 text-orange-500/70"></i>Filtrar Kanban</div>
+                <div class="card-header"><i class="bi bi-funnel mr-2 text-orange-500/70"></i>Filtrar</div>
                 <div class="p-5">
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end mb-4">
                         <div>
@@ -510,10 +519,10 @@
                                 <option value="">Selecione um projeto</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="form-label" for="kanbanAtividadeSelect">Atividade</label>
+                        <div id="kanbanAtividadeWrap">
+                            <label class="form-label" for="kanbanAtividadeSelect">Atividade <span class="text-xs text-neutral-500">(opcional)</span></label>
                             <select class="form-control" id="kanbanAtividadeSelect" onchange="controleHoras.onKanbanAtividadeChange(this.value)" disabled>
-                                <option value="">Selecione uma atividade</option>
+                                <option value="">Todas as atividades</option>
                             </select>
                         </div>
                     </div>
@@ -522,6 +531,9 @@
                             <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
                             <i class="bi bi-plus-lg mr-1"></i><span class="btn-label">Nova Atividade</span>
                         </button>
+                        <button type="button" class="btn-primary" style="padding:8px 16px;font-size:0.8125rem;white-space:nowrap;display:none;" onclick="controleHoras.criarEpico()" id="btnNovoEpico" disabled>
+                            <i class="bi bi-plus-lg mr-1"></i>Novo Épico
+                        </button>
                         <button type="button" class="btn-ghost" style="padding:8px 16px;font-size:0.8125rem;white-space:nowrap;" onclick="controleHoras.abrirModalColunas()" id="btnEditarColunas" disabled>
                             <i class="bi bi-gear mr-1"></i>Editar Colunas
                         </button>
@@ -529,9 +541,14 @@
                 </div>
             </div>
 
-            <!-- Quadro Kanban -->
+            <!-- Board View -->
             <div id="kanbanBoard" class="kanban-board">
-                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente, projeto e atividade para visualizar o Kanban.</p>
+                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente e projeto para visualizar o Board.</p>
+            </div>
+
+            <!-- Backlog View -->
+            <div id="backlogTree" style="display:none;">
+                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente e projeto para visualizar o Backlog.</p>
             </div>
         </section>
 
@@ -594,38 +611,7 @@
             </div>
         </section>
 
-        <!-- ══ Backlog ══ -->
-        <section id="section-backlog" class="page-section">
-            <div class="mb-8">
-                <div class="inline-flex items-center gap-2 mb-3">
-                    <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
-                    <span class="text-xs font-bold tracking-widest uppercase text-orange-500/80">Planejamento</span>
-                </div>
-                <h1 class="text-4xl font-medium tracking-tighter">Backlog</h1>
-            </div>
-            <div class="glass-card mb-5 p-4">
-                <div class="flex flex-wrap gap-4 items-end">
-                    <div style="min-width:180px;">
-                        <label class="form-label">Cliente</label>
-                        <select class="form-control" id="backlogClienteSelect" onchange="controleHoras.onBacklogClienteChange(this.value)">
-                            <option value="">Selecione um cliente</option>
-                        </select>
-                    </div>
-                    <div style="min-width:220px;">
-                        <label class="form-label">Projeto</label>
-                        <select class="form-control" id="backlogProjetoSelect" disabled onchange="controleHoras.onBacklogProjetoChange(this.value)">
-                            <option value="">Selecione um projeto</option>
-                        </select>
-                    </div>
-                    <button type="button" class="btn-primary" id="btnNovoEpico" disabled onclick="controleHoras.criarEpico()">
-                        <i class="bi bi-plus-lg mr-1"></i>Novo Épico
-                    </button>
-                </div>
-            </div>
-            <div id="backlogTree">
-                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente e projeto para visualizar o backlog.</p>
-            </div>
-        </section>
+
 
     </main>
 </div>
@@ -698,6 +684,14 @@
                         <option value="">Nenhum</option>
                     </select>
                 </div>
+            </div>
+
+            <!-- Atividade (opcional) -->
+            <div class="mb-4">
+                <label class="form-label" for="tarefaAtividadeId">Atividade <span class="text-xs text-neutral-500">(opcional)</span></label>
+                <select class="form-control" id="tarefaAtividadeId">
+                    <option value="">Sem atividade</option>
+                </select>
             </div>
 
             <!-- Tags -->
@@ -897,7 +891,6 @@
 <script src="js/dashboard.js"></script>
 <script src="js/relatorios.js"></script>
 <script src="js/kanban.js"></script>
-<script src="js/backlog.js"></script>
 <script src="js/equipe.js"></script>
 <script src="js/main.js"></script>
 

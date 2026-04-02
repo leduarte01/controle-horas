@@ -52,9 +52,6 @@ class ControleHoras {
         this.carregarDados();
         this.atualizarDashboard();
         this.definirDataAtual();
-        if (this.inicializarBacklog) {
-            this.inicializarBacklog();
-        }
     }
 
     setupEventListeners() {

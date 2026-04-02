@@ -26,11 +26,6 @@ function navegarPara(secao) {
     if (secao === 'kanban' && controleHoras && controleHoras.inicializarKanban) {
         controleHoras.inicializarKanban();
     }
-
-    // Inicializar Backlog quando acessar a aba
-    if (secao === 'backlog' && controleHoras && controleHoras.inicializarBacklog) {
-        controleHoras.inicializarBacklog();
-    }
     
     // Carregar Equipe quando acessar a aba
     if (secao === 'equipe' && controleHoras && controleHoras.carregarEquipe) {
