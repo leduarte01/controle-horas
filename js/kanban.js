@@ -599,8 +599,8 @@ Object.assign(ControleHoras.prototype, {
     async criarEpicoInline() {
         const projetoId = document.getElementById('criarTarefaProjeto').value;
         if (!projetoId) { this.mostrarToast('Selecione um projeto primeiro.', 'error'); return; }
-        const titulo = prompt('Nome do novo épico:');
-        if (!titulo || !titulo.trim()) return;
+        const titulo = await Dialog.prompt({ title: 'Novo Épico', placeholder: 'Ex: Sprint 1, MVP, Fase 2…', confirmText: 'Criar Épico' });
+        if (!titulo) return;
         try {
             const r = await fetch(`${this.apiBaseUrl}/tarefas`, {
                 method: 'POST',

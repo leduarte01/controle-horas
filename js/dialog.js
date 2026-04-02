@@ -124,5 +124,68 @@ const Dialog = {
             };
             document.addEventListener('keydown', onKey);
         });
+    },
+
+    /**
+     * Show a prompt dialog (text input)
+     * @param {Object} opts
+     * @param {string} opts.title
+     * @param {string} [opts.placeholder='']
+     * @param {string} [opts.confirmText='Criar']
+     * @param {string} [opts.cancelText='Cancelar']
+     * @returns {Promise<string|null>} — the trimmed value, or null if cancelled
+     */
+    prompt({ title = 'Digite um valor', placeholder = '', confirmText = 'Criar', cancelText = 'Cancelar' }) {
+        return new Promise(resolve => {
+            const overlay = document.createElement('div');
+            overlay.className = 'custom-dialog-overlay';
+            overlay.innerHTML = `
+                <div class="custom-dialog">
+                    <div class="custom-dialog-shimmer"></div>
+                    <div class="custom-dialog-body" style="padding-top:24px;">
+                        <div class="custom-dialog-title">${title}</div>
+                        <input type="text" class="custom-dialog-input" placeholder="${placeholder}"
+                               style="width:100%;margin-top:14px;padding:9px 12px;border-radius:8px;
+                                      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);
+                                      color:#e2e8f0;font-size:0.9rem;outline:none;"
+                               autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="custom-dialog-actions">
+                        <button class="custom-dialog-btn cancel" data-action="cancel">${cancelText}</button>
+                        <button class="custom-dialog-btn confirm-primary" data-action="confirm">
+                            <i class="bi bi-plus-lg" style="margin-right:4px;"></i>${confirmText}
+                        </button>
+                    </div>
+                </div>`;
+
+            document.body.appendChild(overlay);
+            requestAnimationFrame(() => overlay.classList.add('active'));
+
+            const input = overlay.querySelector('.custom-dialog-input');
+            setTimeout(() => input.focus(), 150);
+
+            const close = (value) => {
+                overlay.classList.remove('active');
+                setTimeout(() => { overlay.remove(); resolve(value); }, 200);
+            };
+
+            overlay.querySelector('[data-action="cancel"]').onclick = () => close(null);
+            overlay.querySelector('[data-action="confirm"]').onclick = () => {
+                const val = input.value.trim();
+                if (!val) { input.style.borderColor = '#ef4444'; input.focus(); return; }
+                close(val);
+            };
+
+            const onKey = (e) => {
+                if (e.key === 'Escape') { document.removeEventListener('keydown', onKey); close(null); }
+                if (e.key === 'Enter')  {
+                    const val = input.value.trim();
+                    if (!val) { input.style.borderColor = '#ef4444'; return; }
+                    document.removeEventListener('keydown', onKey);
+                    close(val);
+                }
+            };
+            document.addEventListener('keydown', onKey);
+        });
     }
 };
