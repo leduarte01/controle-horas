@@ -497,7 +497,16 @@ Object.assign(ControleHoras.prototype, {
         const modal = document.getElementById('modalCriarTarefa');
         if (!modal) return;
 
-        document.getElementById('criarTarefaCliente').value     = '';
+        // Populate clientes select
+        const selCliente = document.getElementById('criarTarefaCliente');
+        selCliente.innerHTML = '<option value="">Selecione...</option>';
+        (this.clientes || []).forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id; opt.textContent = c.nome;
+            selCliente.appendChild(opt);
+        });
+        selCliente.value = '';
+
         document.getElementById('criarTarefaProjeto').value     = '';
         document.getElementById('criarTarefaProjeto').innerHTML = '<option value="">Selecione um cliente primeiro</option>';
         document.getElementById('criarTarefaEpico').value       = '';
