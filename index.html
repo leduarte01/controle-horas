@@ -485,7 +485,7 @@
             <div class="glass-card mb-5">
                 <div class="card-header"><i class="bi bi-funnel mr-2 text-orange-500/70"></i>Filtrar Kanban</div>
                 <div class="p-5">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end mb-4">
                         <div>
                             <label class="form-label" for="kanbanClienteSelect">Cliente</label>
                             <select class="form-control" id="kanbanClienteSelect" onchange="controleHoras.onKanbanClienteChange(this.value)">
@@ -504,15 +504,15 @@
                                 <option value="">Selecione uma atividade</option>
                             </select>
                         </div>
-                        <div class="flex gap-2">
-                            <button type="button" class="btn-primary flex-1" style="padding:8px 14px;font-size:0.8125rem;" onclick="controleHoras.abrirModalAtividade()" id="btnNovaAtividade" disabled>
-                                <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
-                                <i class="bi bi-plus-lg mr-1"></i><span class="btn-label">Nova Atividade</span>
-                            </button>
-                            <button type="button" class="btn-ghost" style="padding:8px 14px;font-size:0.8125rem;white-space:nowrap;" onclick="controleHoras.abrirModalColunas()" id="btnEditarColunas" disabled>
-                                <i class="bi bi-gear mr-1"></i>Colunas
-                            </button>
-                        </div>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button type="button" class="btn-primary" style="padding:8px 16px;font-size:0.8125rem;white-space:nowrap;" onclick="controleHoras.abrirModalAtividade()" id="btnNovaAtividade" disabled>
+                            <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                            <i class="bi bi-plus-lg mr-1"></i><span class="btn-label">Nova Atividade</span>
+                        </button>
+                        <button type="button" class="btn-ghost" style="padding:8px 16px;font-size:0.8125rem;white-space:nowrap;" onclick="controleHoras.abrirModalColunas()" id="btnEditarColunas" disabled>
+                            <i class="bi bi-gear mr-1"></i>Editar Colunas
+                        </button>
                     </div>
                 </div>
             </div>

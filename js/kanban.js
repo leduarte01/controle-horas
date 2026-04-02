@@ -144,9 +144,10 @@ Object.assign(ControleHoras.prototype, {
 
     _updateButtonStates() {
         const hasProjeto = !!this.kanbanProjetoAtual;
-        const hasAtividade = !!this.kanbanAtividadeAtual;
+        // const hasAtividade = !!this.kanbanAtividadeAtual;
         document.getElementById('btnNovaAtividade').disabled = !hasProjeto;
-        document.getElementById('btnEditarColunas').disabled = !hasAtividade;
+        // As colunas são vinculadas ao projeto, então basta ter o projeto selecionado
+        document.getElementById('btnEditarColunas').disabled = !hasProjeto;
     },
 
     // ─── Carregar Kanban de um projeto + atividade ───
