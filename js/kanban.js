@@ -559,14 +559,18 @@ Object.assign(ControleHoras.prototype, {
             opt.value = p.id; opt.textContent = p.nome;
             selProjeto.appendChild(opt);
         });
-        // Reset épico
+        // Reset épico e desabilita botão
         document.getElementById('criarTarefaEpico').innerHTML = '<option value="">Sem épico</option>';
+        const btnEpico = document.getElementById('btnCriarEpicoInline');
+        if (btnEpico) btnEpico.disabled = true;
     },
 
     async onCriarTarefaProjetoChange(projetoId) {
         const selEpico  = document.getElementById('criarTarefaEpico');
         const selColuna = document.getElementById('criarTarefaColuna');
+        const btnEpico  = document.getElementById('btnCriarEpicoInline');
         selEpico.innerHTML = '<option value="">Sem épico</option>';
+        if (btnEpico) btnEpico.disabled = !projetoId;
 
         if (!projetoId) return;
 
@@ -607,7 +611,7 @@ Object.assign(ControleHoras.prototype, {
             const criado = await r.json();
             const selEpico = document.getElementById('criarTarefaEpico');
             const opt = document.createElement('option');
-            opt.value = criado.id || criado.tarefa?.id; opt.textContent = titulo.trim();
+            opt.value = criado.id; opt.textContent = titulo.trim();
             selEpico.appendChild(opt);
             selEpico.value = opt.value;
             this.mostrarToast('Épico criado!', 'success');
