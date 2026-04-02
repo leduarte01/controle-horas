@@ -367,6 +367,70 @@ app.delete('/api/atividades/:id', async (req, res) => {
 });
 
 // --- TAREFAS (KANBAN + BACKLOG) ---
+
+// GET /api/backlog?clienteId=&projetoId=&epicoId=&featureId=&search= — todos os itens da árvore com filtros opcionais
+app.get('/api/backlog', async (req, res) => {
+  try {
+    const { clienteId, projetoId, epicoId, featureId, search } = req.query;
+    const conditions = [`t."empresaId" = $1`];
+    const params = [req.user.empresaId];
+    let idx = 2;
+
+    if (clienteId)  { conditions.push(`c.id = $${idx++}`);            params.push(clienteId); }
+    if (projetoId)  { conditions.push(`t."projetoId" = $${idx++}`);   params.push(projetoId); }
+    if (search)     { conditions.push(`t.titulo ILIKE $${idx++}`);    params.push(`%${search}%`); }
+
+    // Para filtros de épico/feature: busca os ids de todos os itens afetados + seus ancestrais e descendentes
+    // Estratégia: busca primeiro os itens que batem no filtro folha, depois inclui toda a árvore deles
+    let extraIds = null;
+    if (epicoId || featureId) {
+      // Busca todos os itens do(s) projeto(s) para montar a árvore no servidor
+      const projetoCondition = projetoId ? `AND t."projetoId" = $2` : '';
+      const projetoParam = projetoId ? [req.user.empresaId, projetoId] : [req.user.empresaId];
+      const { rows: allRows } = await pool.query(
+        `SELECT id, "parentId", tipo FROM tarefas WHERE "empresaId" = $1 ${projetoCondition}`,
+        projetoParam
+      );
+      // Monta mapa de descendentes
+      const childMap = {};
+      allRows.forEach(r => {
+        if (r.parentId) {
+          if (!childMap[r.parentId]) childMap[r.parentId] = [];
+          childMap[r.parentId].push(r.id);
+        }
+      });
+      // Pega todos descendentes recursivamente
+      const collectDescendants = (id, acc) => {
+        acc.add(id);
+        (childMap[id] || []).forEach(cid => collectDescendants(cid, acc));
+      };
+      extraIds = new Set();
+      const rootId = featureId || epicoId;
+      collectDescendants(rootId, extraIds);
+      // Inclui o próprio nó raiz e seus ancestrais para manter a árvore navegável
+      const parentMap = {};
+      allRows.forEach(r => { parentMap[r.id] = r.parentId; });
+      let cur = parentMap[rootId];
+      while (cur) { extraIds.add(cur); cur = parentMap[cur]; }
+    }
+
+    if (extraIds) {
+      conditions.push(`t.id = ANY($${idx++})`);
+      params.push(Array.from(extraIds));
+    }
+
+    const { rows } = await pool.query(
+      `SELECT t.* FROM tarefas t
+       LEFT JOIN projetos p ON p.id = t."projetoId"
+       LEFT JOIN clientes c ON c.id = p."clienteId"
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY t."tipo" ASC, t."ordem" ASC`,
+      params
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/tarefas/:projetoId', async (req, res) => {
   try {
     const atividadeId = req.query.atividadeId;

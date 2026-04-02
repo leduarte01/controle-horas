@@ -142,12 +142,7 @@ Object.assign(ControleHoras.prototype, {
         if (this.currentKanbanView === 'board') {
             await this.carregarKanbanBoard();
         } else {
-            if (this.kanbanProjetoAtual) {
-                await this._carregarBacklogKanban();
-            } else {
-                const bt = document.getElementById('backlogTree');
-                if (bt) bt.innerHTML = '<div class="glass-card p-10 text-center"><p class="text-neutral-400 text-sm">Selecione um projeto no filtro acima para ver o Backlog.</p></div>';
-            }
+            await this._carregarBacklogKanban();
         }
     },
 
@@ -157,6 +152,7 @@ Object.assign(ControleHoras.prototype, {
         this._searchDebounceTimer = setTimeout(async () => {
             this.kanbanFiltros.search = value;
             if (this.currentKanbanView === 'board') await this.carregarKanbanBoard();
+            else await this._carregarBacklogKanban();
         }, 300);
     },
 
@@ -1120,22 +1116,22 @@ Object.assign(ControleHoras.prototype, {
 
     async _carregarBacklogKanban() {
         this._initBacklogState();
-        const projetoId = this.kanbanFiltros?.projeto
-                       || document.getElementById('kanbanFiltroProjeto')?.value
-                       || this.kanbanProjetoAtual?.id;
+        const f = this.kanbanFiltros;
 
         const bt = document.getElementById('backlogTree');
-        if (!projetoId) {
-            if (bt) bt.innerHTML = '<p class="text-neutral-400 text-center py-10 text-sm">Selecione um projeto no filtro acima para ver o backlog.</p>';
-            return;
-        }
-
         if (bt) bt.innerHTML = '<p class="text-neutral-500 text-center py-10 text-sm"><i class="bi bi-arrow-repeat mr-2"></i>Carregando backlog...</p>';
         this.backlogItems = [];
         this.backlogExpandedNodes.clear();
 
+        const params = new URLSearchParams();
+        if (f.clienteId)  params.append('clienteId',  f.clienteId);
+        if (f.projetoId)  params.append('projetoId',  f.projetoId);
+        if (f.epicoId)    params.append('epicoId',    f.epicoId);
+        if (f.featureId)  params.append('featureId',  f.featureId);
+        if (f.search)     params.append('search',     f.search);
+
         try {
-            const resp = await fetch(`${this.apiBaseUrl}/tarefas/${projetoId}`, {
+            const resp = await fetch(`${this.apiBaseUrl}/backlog?${params}`, {
                 headers: { 'Authorization': 'Bearer ' + this.token }
             });
             this.backlogItems = await resp.json();
@@ -1143,6 +1139,8 @@ Object.assign(ControleHoras.prototype, {
         } catch (e) {
             this.backlogItems = [];
         }
+        this.renderizarBacklog();
+    },
         this.renderizarBacklog();
     },
 
