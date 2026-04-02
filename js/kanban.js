@@ -862,8 +862,18 @@ Object.assign(ControleHoras.prototype, {
     onTarefaTipoChange(tipo, forceParentId) {
         const selParent = document.getElementById('tarefaParentSelect');
         if (!selParent) return;
-        const PARENT_TIPO = { task: 'userstory', userstory: 'feature', feature: 'epic', epic: null };
-        const parentTipo = PARENT_TIPO[tipo];
+        const PARENT_TIPO = { task: 'feature', userstory: 'feature', feature: 'epic', epic: null };
+        const allItems = [...(this.kanbanTarefas || []), ...(this.backlogItems || [])];
+
+        const currentParentId = forceParentId || document.getElementById('tarefaParentId').value;
+
+        // Se já existe um pai salvo, usa o tipo real dele para popular o select corretamente
+        let parentTipo = PARENT_TIPO[tipo];
+        if (currentParentId) {
+            const actualParent = allItems.find(i => i.id === currentParentId);
+            if (actualParent) parentTipo = actualParent.tipo;
+        }
+
         selParent.innerHTML = '<option value="">Sem pai</option>';
 
         if (!parentTipo) {
@@ -872,7 +882,6 @@ Object.assign(ControleHoras.prototype, {
             return;
         }
 
-        const allItems = [...(this.kanbanTarefas || []), ...(this.backlogItems || [])];
         const potentials = allItems.filter(i => i.tipo === parentTipo);
         potentials.forEach(p => {
             const opt = document.createElement('option');
@@ -882,7 +891,6 @@ Object.assign(ControleHoras.prototype, {
         });
         selParent.disabled = potentials.length === 0;
 
-        const currentParentId = forceParentId || document.getElementById('tarefaParentId').value;
         if (currentParentId) {
             selParent.value = currentParentId;
             document.getElementById('tarefaParentId').value = selParent.value;
