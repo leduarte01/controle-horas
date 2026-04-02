@@ -181,6 +181,13 @@ async function initDB() {
       ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "atividadeId" VARCHAR(50) REFERENCES atividades("id") ON DELETE SET NULL;
     `);
 
+    // Número sequencial por tarefa (usado nos cards do Kanban)
+    await pool.query(`
+      CREATE SEQUENCE IF NOT EXISTS tarefas_numero_seq;
+      ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "numero" BIGINT DEFAULT nextval('tarefas_numero_seq');
+    `);
+    await pool.query(`UPDATE tarefas SET "numero" = nextval('tarefas_numero_seq') WHERE "numero" IS NULL;`);
+
     console.log('Criando tabela de Comentários de Tarefas...');
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tarefas_comentarios (

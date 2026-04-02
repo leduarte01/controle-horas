@@ -498,6 +498,71 @@ app.delete('/api/tarefas/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// --- BOARD CROSS-PROJECT (Kanban redesign) ---
+// GET /api/tarefas-board?clienteId=&projetoId=&epicoId=&responsavelId=&prioridade=&search=&coluna=
+app.get('/api/tarefas-board', async (req, res) => {
+  try {
+    const { clienteId, projetoId, epicoId, responsavelId, prioridade, search, coluna } = req.query;
+    const conditions = [`t."empresaId" = $1`, `(t.tipo = 'task' OR t.tipo IS NULL)`];
+    const params = [req.user.empresaId];
+    let idx = 2;
+
+    if (clienteId)     { conditions.push(`c.id = $${idx++}`);             params.push(clienteId); }
+    if (projetoId)     { conditions.push(`t."projetoId" = $${idx++}`);    params.push(projetoId); }
+    if (epicoId)       {
+      conditions.push(`(p1.id = $${idx} OR p2.id = $${idx} OR p3.id = $${idx})`);
+      params.push(epicoId); idx++;
+    }
+    if (responsavelId) { conditions.push(`t."responsavelId" = $${idx++}`); params.push(parseInt(responsavelId)); }
+    if (prioridade)    { conditions.push(`t.prioridade = $${idx++}`);      params.push(parseInt(prioridade)); }
+    if (search)        { conditions.push(`t.titulo ILIKE $${idx++}`);      params.push(`%${search}%`); }
+    if (coluna)        { conditions.push(`t.coluna = $${idx++}`);          params.push(coluna); }
+
+    const query = `
+      SELECT
+        t.*,
+        p.nome   AS "projetoNome",
+        c.nome   AS "clienteNome",
+        u.nome   AS "responsavelNome",
+        p."colunasKanban" AS "projetoColunasKanban",
+        COALESCE(
+          CASE WHEN p1.tipo = 'epic' THEN p1.titulo END,
+          CASE WHEN p2.tipo = 'epic' THEN p2.titulo END,
+          CASE WHEN p3.tipo = 'epic' THEN p3.titulo END
+        ) AS "epicoTitulo",
+        COALESCE(
+          CASE WHEN p1.tipo = 'epic' THEN p1.id END,
+          CASE WHEN p2.tipo = 'epic' THEN p2.id END,
+          CASE WHEN p3.tipo = 'epic' THEN p3.id END
+        ) AS "epicoId"
+      FROM tarefas t
+      LEFT JOIN projetos p  ON p.id = t."projetoId"
+      LEFT JOIN clientes c  ON c.id = p."clienteId"
+      LEFT JOIN usuarios u  ON u.id = t."responsavelId"
+      LEFT JOIN tarefas p1  ON p1.id = t."parentId"           AND p1."empresaId" = t."empresaId"
+      LEFT JOIN tarefas p2  ON p2.id = p1."parentId"          AND p2."empresaId" = t."empresaId"
+      LEFT JOIN tarefas p3  ON p3.id = p2."parentId"          AND p3."empresaId" = t."empresaId"
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY t."dataCriacao" DESC
+    `;
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/epicos/:projetoId — épicos de um projeto (para populates de modais)
+app.get('/api/epicos/:projetoId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, titulo FROM tarefas
+       WHERE "projetoId" = $1 AND "empresaId" = $2 AND tipo = 'epic'
+       ORDER BY titulo ASC`,
+      [req.params.projetoId, req.user.empresaId]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // --- LANÇAMENTOS ---
 // REGRA: Admin vê tudo da empresa, membro vê apenas os seus
 app.get('/api/lancamentos', async (req, res) => {

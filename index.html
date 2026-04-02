@@ -482,16 +482,23 @@
 
         <!-- ══ Kanban ══ -->
         <section id="section-kanban" class="page-section">
-            <div class="mb-6">
-                <div class="inline-flex items-center gap-2 mb-3">
-                    <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
-                    <span class="text-xs font-bold tracking-widest uppercase text-orange-500/80">Gestão Visual</span>
+            <!-- Header row: título + botão criar -->
+            <div class="kanban-header-row mb-6">
+                <div>
+                    <div class="inline-flex items-center gap-2 mb-3">
+                        <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
+                        <span class="text-xs font-bold tracking-widest uppercase text-orange-500/80">Gestão Visual</span>
+                    </div>
+                    <h1 class="text-4xl font-medium tracking-tighter">Kanban</h1>
                 </div>
-                <h1 class="text-4xl font-medium tracking-tighter">Kanban</h1>
+                <button type="button" class="btn-primary" style="align-self:flex-end;padding:10px 18px;font-size:0.875rem;white-space:nowrap;" onclick="controleHoras.abrirModalCriarTarefa()">
+                    <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                    <i class="bi bi-plus-lg mr-1 btn-icon"></i><span class="btn-label">Criar Tarefa</span>
+                </button>
             </div>
 
             <!-- Tabs: Board | Backlog -->
-            <div class="flex gap-0 mb-5" style="border-bottom:1px solid rgba(255,255,255,0.08);">
+            <div class="flex gap-0 mb-4" style="border-bottom:1px solid rgba(255,255,255,0.08);">
                 <button id="tabBoard" onclick="controleHoras.switchKanbanView('board')"
                     style="padding:8px 20px;font-size:0.8125rem;font-weight:600;border:none;border-bottom:2px solid #f97316;color:#f97316;background:transparent;cursor:pointer;transition:all .2s;">
                     <i class="bi bi-layout-three-columns mr-1"></i>Board
@@ -502,53 +509,84 @@
                 </button>
             </div>
 
-            <!-- Filtro Cascata: Cliente → Projeto → Atividade -->
-            <div class="glass-card mb-5">
-                <div class="card-header"><i class="bi bi-funnel mr-2 text-orange-500/70"></i>Filtrar</div>
-                <div class="p-5">
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end mb-4">
-                        <div>
-                            <label class="form-label" for="kanbanClienteSelect">Cliente</label>
-                            <select class="form-control" id="kanbanClienteSelect" onchange="controleHoras.onKanbanClienteChange(this.value)">
-                                <option value="">Selecione um cliente</option>
+            <!-- Barra de Filtros -->
+            <div class="kanban-filters-bar glass-card mb-5">
+                <div class="p-4">
+                    <div class="flex flex-wrap gap-3 items-end">
+                        <!-- Busca textual -->
+                        <div style="flex:1;min-width:160px;">
+                            <label class="form-label" style="font-size:0.7rem;margin-bottom:4px;">Buscar</label>
+                            <div style="position:relative;">
+                                <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.3);font-size:0.75rem;pointer-events:none;"></i>
+                                <input type="search" id="kanbanSearchInput" class="form-control" placeholder="Buscar tarefas..." style="padding-left:30px;font-size:0.8125rem;"
+                                    oninput="controleHoras.onFiltroSearch(this.value)">
+                            </div>
+                        </div>
+                        <!-- Cliente -->
+                        <div style="min-width:140px;">
+                            <label class="form-label" style="font-size:0.7rem;margin-bottom:4px;">Cliente</label>
+                            <select class="form-control" id="kanbanFiltroCliente" style="font-size:0.8125rem;"
+                                onchange="controleHoras.onFiltroChange('clienteId', this.value)">
+                                <option value="">Todos</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="form-label" for="kanbanProjetoSelect">Projeto</label>
-                            <select class="form-control" id="kanbanProjetoSelect" onchange="controleHoras.onKanbanProjetoChange(this.value)" disabled>
-                                <option value="">Selecione um projeto</option>
+                        <!-- Projeto -->
+                        <div style="min-width:160px;">
+                            <label class="form-label" style="font-size:0.7rem;margin-bottom:4px;">Projeto</label>
+                            <select class="form-control" id="kanbanFiltroProjeto" style="font-size:0.8125rem;"
+                                onchange="controleHoras.onFiltroChange('projetoId', this.value)">
+                                <option value="">Todos</option>
                             </select>
                         </div>
-                        <div id="kanbanAtividadeWrap">
-                            <label class="form-label" for="kanbanAtividadeSelect">Atividade <span class="text-xs text-neutral-500">(opcional)</span></label>
-                            <select class="form-control" id="kanbanAtividadeSelect" onchange="controleHoras.onKanbanAtividadeChange(this.value)" disabled>
-                                <option value="">Todas as atividades</option>
+                        <!-- Épico -->
+                        <div style="min-width:140px;">
+                            <label class="form-label" style="font-size:0.7rem;margin-bottom:4px;">Épico</label>
+                            <select class="form-control" id="kanbanFiltroEpico" style="font-size:0.8125rem;"
+                                onchange="controleHoras.onFiltroChange('epicoId', this.value)">
+                                <option value="">Todos</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="flex gap-2 flex-wrap">
-                        <button type="button" class="btn-primary" style="padding:8px 16px;font-size:0.8125rem;white-space:nowrap;" onclick="controleHoras.abrirModalAtividade()" id="btnNovaAtividade" disabled>
-                            <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
-                            <i class="bi bi-plus-lg mr-1"></i><span class="btn-label">Nova Atividade</span>
-                        </button>
-                        <button type="button" class="btn-primary" style="padding:8px 16px;font-size:0.8125rem;white-space:nowrap;display:none;" onclick="controleHoras.criarEpico()" id="btnNovoEpico" disabled>
-                            <i class="bi bi-plus-lg mr-1"></i>Novo Épico
-                        </button>
-                        <button type="button" class="btn-ghost" style="padding:8px 16px;font-size:0.8125rem;white-space:nowrap;" onclick="controleHoras.abrirModalColunas()" id="btnEditarColunas" disabled>
-                            <i class="bi bi-gear mr-1"></i>Editar Colunas
-                        </button>
+                        <!-- Responsável -->
+                        <div style="min-width:140px;">
+                            <label class="form-label" style="font-size:0.7rem;margin-bottom:4px;">Responsável</label>
+                            <select class="form-control" id="kanbanFiltroResponsavel" style="font-size:0.8125rem;"
+                                onchange="controleHoras.onFiltroChange('responsavelId', this.value)">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <!-- Prioridade -->
+                        <div style="min-width:120px;">
+                            <label class="form-label" style="font-size:0.7rem;margin-bottom:4px;">Prioridade</label>
+                            <select class="form-control" id="kanbanFiltroPrioridade" style="font-size:0.8125rem;"
+                                onchange="controleHoras.onFiltroChange('prioridade', this.value)">
+                                <option value="">Todas</option>
+                                <option value="1">🔴 Alta</option>
+                                <option value="2">🟡 Média</option>
+                                <option value="3">🔵 Normal</option>
+                                <option value="4">⚪ Baixa</option>
+                            </select>
+                        </div>
+                        <!-- Ações -->
+                        <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:1px;">
+                            <button type="button" class="btn-ghost" style="padding:7px 12px;font-size:0.8125rem;" onclick="controleHoras.abrirModalColunas()" id="btnEditarColunas" disabled title="Editar colunas do projeto">
+                                <i class="bi bi-gear mr-1"></i>Colunas
+                            </button>
+                            <button type="button" id="btnNovoEpico" class="btn-ghost" style="padding:7px 12px;font-size:0.8125rem;display:none;" onclick="controleHoras.criarEpico()">
+                                <i class="bi bi-plus-lg mr-1"></i>Novo Épico
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Board View -->
             <div id="kanbanBoard" class="kanban-board">
-                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente e projeto para visualizar o Board.</p>
+                <p class="text-neutral-500 text-center py-16 text-sm w-full"><i class="bi bi-arrow-repeat mr-2"></i>Carregando board...</p>
             </div>
 
             <!-- Backlog View -->
             <div id="backlogTree" style="display:none;">
-                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente e projeto para visualizar o Backlog.</p>
+                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um projeto no filtro acima para ver o Backlog.</p>
             </div>
         </section>
 
@@ -626,6 +664,7 @@
         <form id="formTarefa" class="p-5" onsubmit="event.preventDefault(); controleHoras.salvarTarefa();" style="max-height:85vh;overflow-y:auto;">
             <input type="hidden" id="tarefaId">
             <input type="hidden" id="tarefaParentId">
+            <input type="hidden" id="tarefaProjetoId">
 
             <!-- Tipo + Item Pai -->
             <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -749,6 +788,92 @@
     </div>
 </div>
 
+<!-- ═══ Modal Criar Tarefa ═══ -->
+<div id="modalCriarTarefa" class="kanban-modal-overlay" onclick="if(event.target===this) controleHoras.fecharModalCriarTarefa();">
+    <div class="kanban-modal glass-card" style="max-width:500px;">
+        <div class="card-header" style="justify-content:space-between;">
+            <span><i class="bi bi-plus-circle mr-2 text-orange-500/70"></i>Nova Tarefa</span>
+            <button class="btn-ghost" style="padding:4px 8px;" onclick="controleHoras.fecharModalCriarTarefa();"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <form id="formCriarTarefa" class="p-5" onsubmit="event.preventDefault(); controleHoras.salvarTarefaNova();" style="max-height:82vh;overflow-y:auto;">
+            <input type="hidden" id="criarTarefaColunaDefault">
+            <!-- Cliente + Projeto -->
+            <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label" for="criarTarefaCliente">Cliente *</label>
+                    <select class="form-control" id="criarTarefaCliente" required onchange="controleHoras.onCriarTarefaClienteChange(this.value)">
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="criarTarefaProjeto">Projeto *</label>
+                    <select class="form-control" id="criarTarefaProjeto" required onchange="controleHoras.onCriarTarefaProjetoChange(this.value)" disabled>
+                        <option value="">Selecione o cliente</option>
+                    </select>
+                </div>
+            </div>
+            <!-- Épico -->
+            <div class="mb-4">
+                <label class="form-label" for="criarTarefaEpico">Épico *</label>
+                <div style="display:flex;gap:8px;">
+                    <select class="form-control" id="criarTarefaEpico" required style="flex:1;" disabled>
+                        <option value="">Selecione o projeto</option>
+                    </select>
+                    <button type="button" class="btn-ghost" style="padding:7px 10px;font-size:0.8125rem;white-space:nowrap;" id="btnCriarEpicoInline" onclick="controleHoras.criarEpicoInline()" disabled title="Criar novo épico">
+                        <i class="bi bi-plus-lg"></i> Épico
+                    </button>
+                </div>
+            </div>
+            <!-- Título -->
+            <div class="mb-4">
+                <label class="form-label" for="criarTarefaTitulo">Título *</label>
+                <input type="text" class="form-control" id="criarTarefaTitulo" required placeholder="Ex: Implementar login">
+            </div>
+            <!-- Descrição -->
+            <div class="mb-4">
+                <label class="form-label" for="criarTarefaDescricao">Descrição</label>
+                <textarea class="form-control" id="criarTarefaDescricao" rows="2" placeholder="Detalhes..."></textarea>
+            </div>
+            <!-- Prioridade + Coluna -->
+            <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label" for="criarTarefaPrioridade">Prioridade</label>
+                    <select class="form-control" id="criarTarefaPrioridade">
+                        <option value="1">🔴 Alta</option>
+                        <option value="2">🟡 Média</option>
+                        <option value="3" selected>🔵 Normal</option>
+                        <option value="4">⚪ Baixa</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="criarTarefaColuna">Coluna</label>
+                    <select class="form-control" id="criarTarefaColuna"></select>
+                </div>
+            </div>
+            <!-- Responsável + Estimativa -->
+            <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label" for="criarTarefaResponsavel">Responsável</label>
+                    <select class="form-control" id="criarTarefaResponsavel">
+                        <option value="">Nenhum</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="criarTarefaEstimativa">Estimativa (h)</label>
+                    <input type="number" class="form-control" id="criarTarefaEstimativa" min="0" step="0.5" placeholder="Ex: 4">
+                </div>
+            </div>
+            <div class="flex gap-3 justify-end mt-2">
+                <button type="button" class="btn-ghost" onclick="controleHoras.fecharModalCriarTarefa();">Cancelar</button>
+                <button type="submit" class="btn-primary">
+                    <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
+                    <i class="bi bi-plus-lg mr-1"></i><span class="btn-label">Criar Tarefa</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- ═══ Modal de Colunas ═══ -->
 <div id="modalColunas" class="kanban-modal-overlay" onclick="if(event.target===this) controleHoras.fecharModalColunas();">
     <div class="kanban-modal glass-card" style="max-width:420px;">
@@ -772,79 +897,7 @@
     </div>
 </div>
 
-<!-- ═══ Modal de Atividade ═══ -->
-<div id="modalAtividade" class="kanban-modal-overlay" onclick="if(event.target===this) controleHoras.fecharModalAtividade();">
-    <div class="kanban-modal glass-card" style="max-width:480px;">
-        <div class="card-header" style="justify-content:space-between;">
-            <span><i class="bi bi-activity mr-2 text-orange-500/70"></i><span id="modalAtividadeTitulo">Nova Atividade</span></span>
-            <button class="btn-ghost" style="padding:4px 8px;" onclick="controleHoras.fecharModalAtividade();"><i class="bi bi-x-lg"></i></button>
-        </div>
-        <form id="formAtividade" class="p-5" onsubmit="event.preventDefault(); controleHoras.salvarAtividade();">
-            <input type="hidden" id="atividadeId">
-            <div class="mb-4">
-                <label class="form-label" for="atividadeNome">Nome *</label>
-                <input type="text" class="form-control" id="atividadeNome" required placeholder="Ex: Desenvolvimento">
-            </div>
-            <div class="mb-4">
-                <label class="form-label" for="atividadeDescricao">Descrição</label>
-                <textarea class="form-control" id="atividadeDescricao" rows="2" placeholder="Detalhes da atividade..."></textarea>
-            </div>
-            <div class="mb-4">
-                <label class="form-label" for="atividadeResponsavel">Responsável</label>
-                <select class="form-control" id="atividadeResponsavel">
-                    <option value="">Sem responsável</option>
-                </select>
-            </div>
-            <div class="mb-5">
-                <label class="form-label" for="atividadeCor">Cor</label>
-                <input type="color" id="atividadeCor" value="#f97316" style="width:48px;height:36px;border:none;background:transparent;cursor:pointer;">
-            </div>
-            <div class="flex gap-3 justify-between">
-                <button type="button" id="btnExcluirAtividade" class="btn-ghost" style="color:#ef4444;display:none;" onclick="controleHoras.excluirAtividade();">
-                    <i class="bi bi-trash mr-1"></i>Excluir
-                </button>
-                <div class="flex gap-3 ml-auto">
-                    <button type="button" class="btn-ghost" onclick="controleHoras.fecharModalAtividade();">Cancelar</button>
-                    <button type="submit" class="btn-primary">
-                        <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
-                        <i class="bi bi-check-lg mr-1"></i><span class="btn-label">Salvar</span>
-                    </button>
-                </div>
-            </div>
-        </form>
-        <!-- Importar atividades sugeridas -->
-        <div class="px-5 pb-5" id="importarAtividadesSection">
-            <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:16px;">
-                <button type="button" class="btn-ghost w-full" style="border:1px dashed rgba(255,255,255,0.12);font-size:0.8125rem;" onclick="controleHoras.abrirImportarAtividades();">
-                    <i class="bi bi-download mr-1"></i>Importar Atividades Sugeridas
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- ═══ Modal de Importação de Atividades ═══ -->
-<div id="modalImportarAtividades" class="kanban-modal-overlay" onclick="if(event.target===this) controleHoras.fecharImportarAtividades();">
-    <div class="kanban-modal glass-card" style="max-width:520px;">
-        <div class="card-header" style="justify-content:space-between;">
-            <span><i class="bi bi-download mr-2 text-orange-500/70"></i>Importar Atividades Sugeridas</span>
-            <button class="btn-ghost" style="padding:4px 8px;" onclick="controleHoras.fecharImportarAtividades();"><i class="bi bi-x-lg"></i></button>
-        </div>
-        <div class="p-5">
-            <p class="text-sm text-neutral-400 mb-4">Selecione as atividades que deseja criar para este projeto:</p>
-            <div id="checklistAtividades" class="mb-4" style="display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;"></div>
-            <div class="flex gap-3 justify-between">
-                <button type="button" class="btn-ghost text-sm" onclick="controleHoras.toggleAllAtividades();">
-                    <i class="bi bi-check-all mr-1"></i>Marcar/Desmarcar Todos
-                </button>
-                <button type="button" class="btn-primary" onclick="controleHoras.importarAtividadesSelecionadas();">
-                    <div class="points_wrapper"><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div><div class="point"></div></div>
-                    <i class="bi bi-check-lg mr-1"></i><span class="btn-label">Importar</span>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 <nav class="fixed bottom-0 left-0 right-0 z-50 md:hidden flex bg-[#050505]/95 backdrop-blur-md border-t border-white/[0.06]">
     <button class="mobile-nav-item flex-1" data-section="dashboard"  onclick="navegarPara('dashboard')">
         <i class="bi bi-speedometer2 text-lg"></i><span>Dashboard</span>

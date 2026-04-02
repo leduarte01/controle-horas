@@ -1,0 +1,155 @@
+﻿/**
+ * js/kanban.js - Kanban board engine mixed into ControleHoras
+ * Board always visible, cross-project, filtered via filters bar
+ * Drag & Drop HTML5 nativo + CRUD de tarefas + Backlog tree
+ */
+
+const DEFAULT_COLUNAS = ['Backlog', 'A Fazer', 'Em Andamento', 'Revisao', 'Concluido'];
+
+Object.assign(ControleHoras.prototype, {
+
+    kanbanProjetoAtual: null,
+    kanbanAtividadeAtual: null,
+    kanbanAtividades: [],
+    kanbanTarefas: [],
+    currentKanbanView: 'board',
+    backlogItems: [],
+    backlogExpandedNodes: null,
+    kanbanFiltros: { clienteId: '', projetoId: '', epicoId: '', responsavelId: '', prioridade: '', search: '' },
+    _searchDebounceTimer: null,
+
+    async inicializarKanban() {
+        this._renderFiltrosBar();
+        await this.carregarKanbanBoard();
+    },
+
+    _renderFiltrosBar() {
+        const selCliente = document.getElementById('kanbanFiltroCliente');
+        if (selCliente) {
+            const prev = selCliente.value;
+            selCliente.innerHTML = '<option value="">Todos</option>';
+            (this.clientes || []).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id; opt.textContent = c.nome;
+                selCliente.appendChild(opt);
+            });
+            if (prev) selCliente.value = prev;
+        }
+        const selProj = document.getElementById('kanbanFiltroProjeto');
+        if (selProj) {
+            const prev = selProj.value;
+            selProj.innerHTML = '<option value="">Todos</option>';
+            (this.projetos || []).forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id; opt.textContent = p.nome;
+                selProj.appendChild(opt);
+            });
+            if (prev) selProj.value = prev;
+        }
+        const selResp = document.getElementById('kanbanFiltroResponsavel');
+        if (selResp) {
+            selResp.innerHTML = '<option value="">Todos</option>';
+            (this.equipe || []).forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id; opt.textContent = u.nome;
+                selResp.appendChild(opt);
+            });
+        }
+    },
+
+    async onFiltroChange(campo, valor) {
+        this.kanbanFiltros[campo] = valor;
+
+        if (campo === 'clienteId') {
+            this.kanbanFiltros.projetoId = '';
+            this.kanbanFiltros.epicoId = '';
+            this.kanbanProjetoAtual = null;
+            const selProj = document.getElementById('kanbanFiltroProjeto');
+            if (selProj) {
+                selProj.innerHTML = '<option value="">Todos</option>';
+                const lista = valor ? (this.projetos || []).filter(p => p.clienteId === valor) : (this.projetos || []);
+                lista.forEach(p => {
+                    const opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.nome;
+                    selProj.appendChild(opt);
+                });
+                selProj.value = '';
+            }
+            const selEpico = document.getElementById('kanbanFiltroEpico');
+            if (selEpico) { selEpico.innerHTML = '<option value="">Todos</option>'; selEpico.value = ''; }
+        }
+
+        if (campo === 'projetoId') {
+            this.kanbanFiltros.epicoId = '';
+            this.kanbanProjetoAtual = valor ? (this.projetos || []).find(p => p.id === valor) || null : null;
+            const selEpico = document.getElementById('kanbanFiltroEpico');
+            if (selEpico) {
+                selEpico.innerHTML = '<option value="">Todos</option>';
+                if (valor) {
+                    try {
+                        const resp = await fetch(`${this.apiBaseUrl}/epicos/${valor}`, {
+                            headers: { 'Authorization': 'Bearer ' + this.token }
+                        });
+                        const epicos = await resp.json();
+                        epicos.forEach(e => {
+                            const opt = document.createElement('option'); opt.value = e.id; opt.textContent = e.titulo;
+                            selEpico.appendChild(opt);
+                        });
+                    } catch (e) {}
+                }
+                selEpico.value = '';
+            }
+        }
+
+        this._atualizarBtnEditarColunas();
+
+        if (this.currentKanbanView === 'board') {
+            await this.carregarKanbanBoard();
+        } else {
+            if (this.kanbanProjetoAtual) {
+                await this._carregarBacklogKanban();
+            } else {
+                const bt = document.getElementById('backlogTree');
+                if (bt) bt.innerHTML = '<div class="glass-card p-10 text-center"><p class="text-neutral-400 text-sm">Selecione um projeto no filtro acima para ver o Backlog.</p></div>';
+            }
+        }
+    },
+
+    onFiltroSearch(value) {
+        clearTimeout(this._searchDebounceTimer);
+        this._searchDebounceTimer = setTimeout(async () => {
+            this.kanbanFiltros.search = value;
+            if (this.currentKanbanView === 'board') await this.carregarKanbanBoard();
+        }, 300);
+    },
+
+    _atualizarBtnEditarColunas() {
+        const btn = document.getElementById('btnEditarColunas');
+        if (btn) btn.disabled = !this.kanbanProjetoAtual;
+        const btnEpico = document.getElementById('btnNovoEpico');
+        if (btnEpico) btnEpico.style.display = (this.currentKanbanView === 'backlog' && this.kanbanProjetoAtual) ? 'inline-flex' : 'none';
+    },
+
+    async carregarKanbanBoard() {
+        const f = this.kanbanFiltros;
+        const params = new URLSearchParams();
+        if (f.clienteId)     params.append('clienteId', f.clienteId);
+        if (f.projetoId)     params.append('projetoId', f.projetoId);
+        if (f.epicoId)       params.append('epicoId', f.epicoId);
+        if (f.responsavelId) params.append('responsavelId', f.responsavelId);
+        if (f.prioridade)    params.append('prioridade', f.prioridade);
+        if (f.search)        params.append('search', f.search);
+
+        const board = document.getElementById('kanbanBoard');
+        if (board) board.innerHTML = '<p class="text-neutral-500 text-center py-16 text-sm w-full"><i class="bi bi-arrow-repeat mr-2"></i>Carregando...</p>';
+
+        try {
+            const resp = await fetch(`${this.apiBaseUrl}/tarefas-board?${params}`, {
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            this.kanbanTarefas = await resp.json();
+        } catch (e) {
+            this.kanbanTarefas = [];
+        }
+        this.renderKanban();
+    },
+

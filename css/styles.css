@@ -872,6 +872,69 @@ input.flatpickr-input { cursor: pointer !important; }
     background: rgba(34,197,94,0.08) !important;
 }
 
+/* ── Kanban header & filters ── */
+.kanban-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.kanban-filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+}
+.kanban-filters-bar select,
+.kanban-filters-bar input[type="text"] {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 0.78rem;
+    padding: 5px 10px;
+    height: 34px;
+    outline: none;
+    transition: border-color .15s;
+}
+.kanban-filters-bar select:focus,
+.kanban-filters-bar input[type="text"]:focus {
+    border-color: rgba(249,115,22,0.5);
+}
+
+/* ── Richer card sub-elements ── */
+.kanban-card-number {
+    font-size: 0.62rem;
+    color: rgba(255,255,255,0.22);
+    font-weight: 600;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+.kanban-card-path {
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.28);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.kanban-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 4px 0 2px;
+}
+.kanban-tag-badge {
+    font-size: 0.62rem;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+    line-height: 1.6;
+}
+
 /* ── Modal overlay ── */
 .kanban-modal-overlay {
     position: fixed;

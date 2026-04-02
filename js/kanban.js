@@ -1,212 +1,178 @@
 /**
  * js/kanban.js — Kanban board engine mixed into ControleHoras
- * Cascading filter: Cliente → Projeto → Atividade → Tasks
- * Drag & Drop nativo HTML5 + CRUD de tarefas + CRUD de atividades
+ * Board always visible, cross-project, filtered via filters bar
+ * Drag & Drop HTML5 nativo + CRUD de tarefas + Backlog tree
  */
 
-// Pre-defined activity suggestions
-const ATIVIDADES_SUGERIDAS = [
-    { nome: 'Desenvolvimento',         descricao: 'Codificação, implementação de funcionalidades', cor: '#3b82f6' },
-    { nome: 'Suporte',                  descricao: 'Atendimento, resolução de chamados',           cor: '#22c55e' },
-    { nome: 'Reunião',                  descricao: 'Alinhamentos, dailies, retrospectivas',        cor: '#a855f7' },
-    { nome: 'Documentação',             descricao: 'Manuais, especificações técnicas',             cor: '#06b6d4' },
-    { nome: 'Testes / QA',              descricao: 'Testes funcionais, validação de qualidade',    cor: '#eab308' },
-    { nome: 'Deploy / Infraestrutura',  descricao: 'Publicações, configurações de servidor',       cor: '#ef4444' },
-    { nome: 'Design / UX',              descricao: 'Protótipos, wireframes, interfaces',           cor: '#ec4899' },
-    { nome: 'Análise / Levantamento',   descricao: 'Levantamento de requisitos, análise de negócio', cor: '#14b8a6' },
-    { nome: 'Treinamento',              descricao: 'Capacitação de equipe ou cliente',             cor: '#f97316' },
-    { nome: 'Correção de Bugs',         descricao: 'Correção de erros e falhas',                   cor: '#dc2626' },
-    { nome: 'Consultoria',              descricao: 'Consultoria estratégica, assessoria técnica',  cor: '#8b5cf6' },
-    { nome: 'Automação',                descricao: 'Robôs, scripts, workflows automatizados',      cor: '#10b981' },
-];
+const DEFAULT_COLUNAS = ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído'];
 
 Object.assign(ControleHoras.prototype, {
 
     kanbanProjetoAtual: null,
     kanbanAtividadeAtual: null,
-    kanbanTarefas: [],
     kanbanAtividades: [],
+    kanbanTarefas: [],
     currentKanbanView: 'board',
     backlogItems: [],
     backlogExpandedNodes: null,
+    kanbanFiltros: { clienteId: '', projetoId: '', epicoId: '', responsavelId: '', prioridade: '', search: '' },
+    _searchDebounceTimer: null,
 
-    // ─── Inicialização do Kanban ───
+    // ─── Inicialização ───
     async inicializarKanban() {
-        this.atualizarSelectKanbanClientes();
+        this._renderFiltrosBar();
+        await this.carregarKanbanBoard();
     },
 
-    // ─── Cascata: Popula selects ───
-    atualizarSelectKanbanClientes() {
-        const sel = document.getElementById('kanbanClienteSelect');
-        if (!sel) return;
-        const prev = sel.value;
-        sel.innerHTML = '<option value="">Selecione um cliente</option>';
-        this.clientes.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.id; opt.textContent = c.nome;
-            sel.appendChild(opt);
-        });
-        if (prev && this.clientes.some(c => c.id === prev)) {
-            sel.value = prev;
-        }
-        // Reset downstream
-        this._resetProjetoSelect();
-        this._resetAtividadeSelect();
-        this._resetKanbanBoard();
-        this._updateButtonStates();
-    },
-
-    onKanbanClienteChange(clienteId) {
-        this._resetAtividadeSelect();
-        this._resetKanbanBoard();
-        const selProjeto = document.getElementById('kanbanProjetoSelect');
-        selProjeto.innerHTML = '<option value="">Selecione um projeto</option>';
-
-        if (!clienteId) {
-            selProjeto.disabled = true;
-            this._updateButtonStates();
-            return;
-        }
-
-        const projetosFiltrados = this.projetos.filter(p => p.clienteId === clienteId);
-        projetosFiltrados.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id; opt.textContent = p.nome;
-            selProjeto.appendChild(opt);
-        });
-        selProjeto.disabled = false;
-        this._updateButtonStates();
-    },
-
-    async onKanbanProjetoChange(projetoId) {
-        this._resetKanbanBoard();
-        const selAtividade = document.getElementById('kanbanAtividadeSelect');
-        selAtividade.innerHTML = '<option value="">Selecione uma atividade</option>';
-
-        if (!projetoId) {
-            selAtividade.disabled = true;
-            this.kanbanProjetoAtual = null;
-            this._updateButtonStates();
-            return;
-        }
-
-        this.kanbanProjetoAtual = this.projetos.find(p => p.id === projetoId);
-
-        // Fetch atividades from API
-        try {
-            const resp = await fetch(`${this.apiBaseUrl}/atividades/${projetoId}`, {
-                headers: { 'Authorization': 'Bearer ' + this.token }
+    // Popula os selects estáticos da barra de filtros
+    _renderFiltrosBar() {
+        const selCliente = document.getElementById('kanbanFiltroCliente');
+        if (selCliente) {
+            const prev = selCliente.value;
+            selCliente.innerHTML = '<option value="">Todos</option>';
+            (this.clientes || []).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id; opt.textContent = c.nome;
+                selCliente.appendChild(opt);
             });
-            this.kanbanAtividades = await resp.json();
-        } catch (e) {
-            this.kanbanAtividades = [];
+            if (prev) selCliente.value = prev;
         }
-
-        this.kanbanAtividades.forEach(a => {
-            const opt = document.createElement('option');
-            opt.value = a.id;
-            opt.textContent = a.nome;
-            selAtividade.appendChild(opt);
-        });
-        selAtividade.disabled = false;
-        this._updateButtonStates();
+        const selProj = document.getElementById('kanbanFiltroProjeto');
+        if (selProj) {
+            const prev = selProj.value;
+            selProj.innerHTML = '<option value="">Todos</option>';
+            (this.projetos || []).forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id; opt.textContent = p.nome;
+                selProj.appendChild(opt);
+            });
+            if (prev) selProj.value = prev;
+        }
+        const selResp = document.getElementById('kanbanFiltroResponsavel');
+        if (selResp) {
+            selResp.innerHTML = '<option value="">Todos</option>';
+            (this.equipe || []).forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id; opt.textContent = u.nome;
+                selResp.appendChild(opt);
+            });
+        }
     },
 
-    async onKanbanAtividadeChange(atividadeId) {
-        if (!atividadeId) {
-            this.kanbanAtividadeAtual = null;
-            if (this.currentKanbanView === 'board' && this.kanbanProjetoAtual) {
-                await this.carregarKanban(this.kanbanProjetoAtual.id, null);
+    // ─── Handler de filtros ───
+    async onFiltroChange(campo, valor) {
+        this.kanbanFiltros[campo] = valor;
+
+        // Cascata: mudar cliente → reset projeto/épico, repopular projetos
+        if (campo === 'clienteId') {
+            this.kanbanFiltros.projetoId = '';
+            this.kanbanFiltros.epicoId = '';
+            this.kanbanProjetoAtual = null;
+            const selProj = document.getElementById('kanbanFiltroProjeto');
+            if (selProj) {
+                selProj.innerHTML = '<option value="">Todos</option>';
+                const lista = valor ? (this.projetos || []).filter(p => p.clienteId === valor) : (this.projetos || []);
+                lista.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id; opt.textContent = p.nome;
+                    selProj.appendChild(opt);
+                });
+                selProj.value = '';
             }
-            this._updateButtonStates();
-            return;
+            const selEp = document.getElementById('kanbanFiltroEpico');
+            if (selEp) { selEp.innerHTML = '<option value="">Todos</option>'; selEp.value = ''; }
         }
 
-        this.kanbanAtividadeAtual = this.kanbanAtividades.find(a => a.id === atividadeId);
-        this._updateButtonStates();
+        // Cascata: mudar projeto → carregar épicos do projeto
+        if (campo === 'projetoId') {
+            this.kanbanFiltros.epicoId = '';
+            this.kanbanProjetoAtual = valor ? ((this.projetos || []).find(p => p.id === valor) || null) : null;
+            const selEp = document.getElementById('kanbanFiltroEpico');
+            if (selEp) {
+                selEp.innerHTML = '<option value="">Todos</option>';
+                if (valor) {
+                    try {
+                        const resp = await fetch(`${this.apiBaseUrl}/epicos/${valor}`, {
+                            headers: { 'Authorization': 'Bearer ' + this.token }
+                        });
+                        const epicos = await resp.json();
+                        epicos.forEach(e => {
+                            const opt = document.createElement('option');
+                            opt.value = e.id; opt.textContent = e.titulo;
+                            selEp.appendChild(opt);
+                        });
+                    } catch (_) {}
+                }
+                selEp.value = '';
+            }
+        }
+
+        this._atualizarBtnEditarColunas();
+
         if (this.currentKanbanView === 'board') {
-            await this.carregarKanban(this.kanbanProjetoAtual.id, atividadeId);
+            await this.carregarKanbanBoard();
+        } else {
+            if (this.kanbanProjetoAtual) {
+                await this._carregarBacklogKanban();
+            } else {
+                const bt = document.getElementById('backlogTree');
+                if (bt) bt.innerHTML = '<div class="glass-card p-10 text-center"><p class="text-neutral-400 text-sm">Selecione um projeto no filtro acima para ver o Backlog.</p></div>';
+            }
         }
     },
 
-    _resetProjetoSelect() {
-        const sel = document.getElementById('kanbanProjetoSelect');
-        sel.innerHTML = '<option value="">Selecione um projeto</option>';
-        sel.disabled = true;
-        this.kanbanProjetoAtual = null;
+    // Busca textual com debounce de 300ms
+    onFiltroSearch(value) {
+        clearTimeout(this._searchDebounceTimer);
+        this._searchDebounceTimer = setTimeout(async () => {
+            this.kanbanFiltros.search = value;
+            if (this.currentKanbanView === 'board') await this.carregarKanbanBoard();
+        }, 300);
     },
 
-    _resetAtividadeSelect() {
-        const sel = document.getElementById('kanbanAtividadeSelect');
-        sel.innerHTML = '<option value="">Todas as atividades</option>';
-        sel.disabled = true;
-        this.kanbanAtividadeAtual = null;
-        this.kanbanAtividades = [];
+    _atualizarBtnEditarColunas() {
+        const btn = document.getElementById('btnEditarColunas');
+        if (btn) btn.disabled = !this.kanbanProjetoAtual;
+        const btnEpico = document.getElementById('btnNovoEpico');
+        if (btnEpico) btnEpico.style.display = (this.currentKanbanView === 'backlog' && this.kanbanProjetoAtual) ? 'inline-flex' : 'none';
     },
 
-    _resetKanbanBoard() {
-        const kb = document.getElementById('kanbanBoard');
-        if (kb) kb.innerHTML = '<p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente e projeto para visualizar o Board.</p>';
-        const bt = document.getElementById('backlogTree');
-        if (bt) bt.innerHTML = '<p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente e projeto para visualizar o Backlog.</p>';
-    },
+    // ─── Carregar board cross-project ───
+    async carregarKanbanBoard() {
+        const f = this.kanbanFiltros;
+        const params = new URLSearchParams();
+        if (f.clienteId)     params.append('clienteId', f.clienteId);
+        if (f.projetoId)     params.append('projetoId', f.projetoId);
+        if (f.epicoId)       params.append('epicoId', f.epicoId);
+        if (f.responsavelId) params.append('responsavelId', f.responsavelId);
+        if (f.prioridade)    params.append('prioridade', f.prioridade);
+        if (f.search)        params.append('search', f.search);
 
-    _updateButtonStates() {
-        const hasProjeto = !!this.kanbanProjetoAtual;
-        const isBoardView = this.currentKanbanView === 'board';
-        document.getElementById('btnNovaAtividade').disabled = !hasProjeto;
-
-        const btnNovoEpico = document.getElementById('btnNovoEpico');
-        if (btnNovoEpico) {
-            btnNovoEpico.disabled = !hasProjeto;
-            btnNovoEpico.style.display = isBoardView ? 'none' : 'inline-flex';
-        }
-        const btnEditarColunas = document.getElementById('btnEditarColunas');
-        if (btnEditarColunas) {
-            btnEditarColunas.disabled = !hasProjeto;
-            btnEditarColunas.style.display = isBoardView ? 'inline-flex' : 'none';
-        }
-        const atividadeWrap = document.getElementById('kanbanAtividadeWrap');
-        if (atividadeWrap) {
-            atividadeWrap.style.display = isBoardView ? '' : 'none';
-        }
-    },
-
-    // ─── Carregar Kanban de um projeto + atividade (atividade opcional) ───
-    async carregarKanban(projetoId, atividadeId) {
-        if (!projetoId) {
-            this._resetKanbanBoard();
-            return;
-        }
-        this.kanbanProjetoAtual = this.projetos.find(p => p.id === projetoId);
-        if (!this.kanbanProjetoAtual) return;
+        const board = document.getElementById('kanbanBoard');
+        if (board) board.innerHTML = '<p class="text-neutral-500 text-center py-16 text-sm w-full"><i class="bi bi-arrow-repeat mr-2"></i>Carregando...</p>';
 
         try {
-            const url = atividadeId
-                ? `${this.apiBaseUrl}/tarefas/${projetoId}?atividadeId=${atividadeId}`
-                : `${this.apiBaseUrl}/tarefas/${projetoId}`;
-            const resp = await fetch(url, {
+            const resp = await fetch(`${this.apiBaseUrl}/tarefas-board?${params}`, {
                 headers: { 'Authorization': 'Bearer ' + this.token }
             });
             this.kanbanTarefas = await resp.json();
-        } catch (e) {
+        } catch (_) {
             this.kanbanTarefas = [];
         }
-
         this.renderKanban();
     },
 
     // ─── Renderiza o quadro ───
     renderKanban() {
         const board = document.getElementById('kanbanBoard');
-        if (!this.kanbanProjetoAtual) return;
+        if (!board) return;
 
-        let colunas = this.kanbanProjetoAtual.colunasKanban;
+        let colunas = this.kanbanProjetoAtual?.colunasKanban;
         if (typeof colunas === 'string') {
-            try { colunas = JSON.parse(colunas); } catch (e) { colunas = ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído']; }
+            try { colunas = JSON.parse(colunas); } catch (e) { colunas = null; }
         }
         if (!Array.isArray(colunas) || colunas.length === 0) {
-            colunas = ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído'];
+            colunas = DEFAULT_COLUNAS;
         }
 
         const colorMap = {
@@ -237,7 +203,7 @@ Object.assign(ControleHoras.prototype, {
                         ${this.escapeHtml(col)}
                         <span class="kanban-count">${count}</span>
                     </div>
-                    <button class="kanban-add-btn" onclick="controleHoras.abrirModalTarefa(null, '${this.escapeHtml(col)}')" title="Adicionar tarefa">
+                    <button class="kanban-add-btn" onclick="controleHoras.abrirModalCriarTarefa('${this.escapeHtml(col)}')" title="Adicionar tarefa">
                         <i class="bi bi-plus-lg"></i>
                     </button>
                 </div>
@@ -250,43 +216,74 @@ Object.assign(ControleHoras.prototype, {
 
     renderKanbanCard(tarefa, colors) {
         const isAtrasado = tarefa.dataPrevisao && !tarefa.dataEntrega && new Date(tarefa.dataPrevisao) < new Date();
-        const badgeClass = isAtrasado ? 'kanban-badge-atrasado' : '';
 
+        // #número
+        const numHtml = tarefa.numero
+            ? `<span class="kanban-card-number">#${tarefa.numero}</span>`
+            : '';
+
+        // Caminho: Projeto / Épico
+        const pathParts = [];
+        if (tarefa.projetoNome) pathParts.push(this.escapeHtml(tarefa.projetoNome));
+        if (tarefa.epicoTitulo) pathParts.push(this.escapeHtml(tarefa.epicoTitulo));
+        const pathHtml = pathParts.length
+            ? `<div class="kanban-card-path">${pathParts.join(' / ')}</div>`
+            : '';
+
+        // Tags como badges coloridos
+        let tagsHtml = '';
+        if (tarefa.tags) {
+            try {
+                const tags = typeof tarefa.tags === 'string' ? JSON.parse(tarefa.tags) : tarefa.tags;
+                if (Array.isArray(tags) && tags.length) {
+                    tagsHtml = `<div class="kanban-card-tags">${tags.map((t, i) => {
+                        const hue = (t.charCodeAt(0) * 37 + i * 73) % 360;
+                        return `<span class="kanban-tag-badge" style="background:hsla(${hue},60%,55%,0.18);color:hsl(${hue},70%,70%);">${this.escapeHtml(t)}</span>`;
+                    }).join('')}</div>`;
+                }
+            } catch (_) {}
+        }
+
+        // Datas
         let datesHtml = '';
-        if (tarefa.dataInicio || tarefa.dataPrevisao || tarefa.dataEntrega) {
+        if (tarefa.dataPrevisao || tarefa.dataEntrega) {
             datesHtml = '<div class="kanban-card-dates">';
-            if (tarefa.dataInicio)   datesHtml += `<span title="Início"><i class="bi bi-play-circle"></i> ${this.formatarData(tarefa.dataInicio)}</span>`;
-            if (tarefa.dataPrevisao) datesHtml += `<span title="Previsão" class="${badgeClass}"><i class="bi bi-calendar-event"></i> ${this.formatarData(tarefa.dataPrevisao)}</span>`;
-            if (tarefa.dataEntrega)  datesHtml += `<span title="Entregue" class="kanban-badge-entregue"><i class="bi bi-check-circle"></i> ${this.formatarData(tarefa.dataEntrega)}</span>`;
+            if (tarefa.dataPrevisao) {
+                const cls = isAtrasado ? 'kanban-badge-atrasado' : '';
+                datesHtml += `<span title="Previsão" class="${cls}"><i class="bi bi-calendar-event"></i> ${this.formatarData(tarefa.dataPrevisao)}</span>`;
+            }
+            if (tarefa.dataEntrega) datesHtml += `<span title="Entregue" class="kanban-badge-entregue"><i class="bi bi-check-circle"></i> ${this.formatarData(tarefa.dataEntrega)}</span>`;
             datesHtml += '</div>';
         }
 
-        let responsavelHtml = '';
-        if (tarefa.responsavelId && this.equipe) {
-            const resp = this.equipe.find(u => u.id == tarefa.responsavelId);
-            if (resp) {
-                const init = resp.nome.charAt(0).toUpperCase();
-                responsavelHtml = `
-                <div class="flex items-center gap-1 mt-2 text-xs text-neutral-400" title="Responsável: ${resp.nome}">
-                    <div class="w-5 h-5 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold text-[10px]">
-                        ${init}
-                    </div>
-                    <span class="truncate pr-1">${resp.nome.split(' ')[0]}</span>
-                </div>`;
+        // Footer: estimativa + responsável
+        let footerHtml = '';
+        const parts = [];
+        if (tarefa.estimativaHoras) parts.push(`<span style="font-size:0.68rem;color:rgba(255,255,255,0.3);">Est: ${tarefa.estimativaHoras}h</span>`);
+        if (tarefa.responsavelNome || (tarefa.responsavelId && this.equipe)) {
+            const nome = tarefa.responsavelNome || (this.equipe || []).find(u => u.id == tarefa.responsavelId)?.nome;
+            if (nome) {
+                const initials = nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                parts.push(`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(249,115,22,0.2);color:#f97316;font-size:9px;font-weight:700;" title="${this.escapeHtml(nome)}">${initials}</span>`);
             }
         }
+        if (parts.length) footerHtml = `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px;">${parts.join('')}</div>`;
 
         return `
-        <div class="kanban-card ${badgeClass ? 'kanban-card-atrasado' : ''}"
+        <div class="kanban-card${isAtrasado ? ' kanban-card-atrasado' : ''}"
              draggable="true"
              data-id="${tarefa.id}"
              ondragstart="controleHoras.onDragStartKanban(event, '${tarefa.id}')"
              ondragend="this.classList.remove('dragging');"
              onclick="controleHoras.abrirModalTarefa('${tarefa.id}')">
-            <div class="kanban-card-title">${this.escapeHtml(tarefa.titulo)}</div>
-            ${tarefa.descricao ? `<div class="kanban-card-desc">${this.escapeHtml(tarefa.descricao).substring(0, 80)}${tarefa.descricao.length > 80 ? '…' : ''}</div>` : ''}
+            <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;">
+                ${numHtml}
+                <span class="kanban-card-title" style="flex:1;">${this.escapeHtml(tarefa.titulo)}</span>
+            </div>
+            ${pathHtml}
+            ${tagsHtml}
             ${datesHtml}
-            ${responsavelHtml}
+            ${footerHtml}
         </div>`;
     },
 
@@ -322,108 +319,84 @@ Object.assign(ControleHoras.prototype, {
         }
     },
 
-    // ─── Modal de Tarefa (criar/editar) ───
-    // tipo: 'task'|'userstory'|'feature'|'epic'  parentId: id string or null
+    // ─── Modal de Tarefa (editar / criar via backlog) ───
     abrirModalTarefa(tarefaId, colunaDefault, tipoDefault, parentIdDefault) {
-        // Ensure responsável select is populated
         this.atualizarSelectResponsavelKanban();
 
         const modal = document.getElementById('modalTarefa');
         const form  = document.getElementById('formTarefa');
         form.reset();
-
-        // Reset tags UI
         this._setTagsUI([]);
 
         const fp = window.fpInstances || {};
         const setDate = (id, val) => {
             if (fp[id]) { fp[id].setDate(val || '', true); }
-            else { document.getElementById(id).value = val || ''; }
+            else { const el = document.getElementById(id); if (el) el.value = val || ''; }
         };
 
-        // Determine project for parent select population
-        const projetoId = this.kanbanProjetoAtual?.id || null;
+        let projetoId = this.kanbanProjetoAtual?.id || null;
 
         if (tarefaId) {
-            // Try kanban list first, then backlog items
             const t = this.kanbanTarefas.find(x => x.id === tarefaId)
                    || (this.backlogItems || []).find(x => x.id === tarefaId);
             if (!t) return;
-            document.getElementById('tarefaId').value         = t.id;
-            document.getElementById('tarefaTipo').value       = t.tipo || 'task';
-            document.getElementById('tarefaParentId').value   = t.parentId || '';
-            document.getElementById('tarefaTitulo').value      = t.titulo;
-            document.getElementById('tarefaDescricao').value  = t.descricao || '';
-            document.getElementById('tarefaColuna').value     = t.coluna || 'Backlog';
-            document.getElementById('tarefaResponsavel').value = t.responsavelId || '';
-            document.getElementById('tarefaPrioridade').value  = t.prioridade || 3;
+            projetoId = t.projetoId || projetoId;
+            document.getElementById('tarefaId').value              = t.id;
+            document.getElementById('tarefaProjetoId').value       = projetoId || '';
+            document.getElementById('tarefaTipo').value            = t.tipo || 'task';
+            document.getElementById('tarefaParentId').value        = t.parentId || '';
+            document.getElementById('tarefaTitulo').value          = t.titulo;
+            document.getElementById('tarefaDescricao').value       = t.descricao || '';
+            document.getElementById('tarefaResponsavel').value     = t.responsavelId || '';
+            document.getElementById('tarefaPrioridade').value      = t.prioridade || 3;
             document.getElementById('tarefaEstimativaHoras').value = t.estimativaHoras || '';
             this._setTagsUI(t.tags ? (typeof t.tags === 'string' ? JSON.parse(t.tags) : t.tags) : []);
-            setDate('tarefaDataInicio', t.dataInicio);
+            setDate('tarefaDataInicio',   t.dataInicio);
             setDate('tarefaDataPrevisao', t.dataPrevisao);
-            setDate('tarefaDataEntrega', t.dataEntrega);
+            setDate('tarefaDataEntrega',  t.dataEntrega);
             document.getElementById('modalTarefaTitulo').textContent = 'Editar Tarefa';
             document.getElementById('btnExcluirTarefa').style.display = 'inline-flex';
             document.getElementById('comentariosSection').style.display = 'block';
             document.getElementById('novoComentarioTexto').value = '';
             this.carregarComentarios(t.id);
         } else {
-            document.getElementById('tarefaId').value = '';
-            document.getElementById('tarefaTipo').value       = tipoDefault || 'task';
-            document.getElementById('tarefaParentId').value   = parentIdDefault || '';
-            document.getElementById('tarefaColuna').value     = colunaDefault || 'Backlog';
-            document.getElementById('tarefaResponsavel').value = '';
-            document.getElementById('tarefaPrioridade').value  = 3;
+            document.getElementById('tarefaId').value              = '';
+            document.getElementById('tarefaProjetoId').value       = projetoId || '';
+            document.getElementById('tarefaTipo').value            = tipoDefault || 'task';
+            document.getElementById('tarefaParentId').value        = parentIdDefault || '';
+            document.getElementById('tarefaResponsavel').value     = '';
+            document.getElementById('tarefaPrioridade').value      = 3;
             document.getElementById('tarefaEstimativaHoras').value = '';
-            setDate('tarefaDataInicio', '');
+            setDate('tarefaDataInicio',   '');
             setDate('tarefaDataPrevisao', '');
-            setDate('tarefaDataEntrega', '');
+            setDate('tarefaDataEntrega',  '');
             document.getElementById('modalTarefaTitulo').textContent = 'Nova Tarefa';
             document.getElementById('btnExcluirTarefa').style.display = 'none';
             document.getElementById('comentariosSection').style.display = 'none';
         }
 
-        // Popula select de colunas
+        // Colunas do projeto da tarefa (ou projeto do filtro, ou default)
         const selColuna = document.getElementById('tarefaColuna');
         selColuna.innerHTML = '';
-        let colunas = this.kanbanProjetoAtual?.colunasKanban;
-        if (typeof colunas === 'string') { try { colunas = JSON.parse(colunas); } catch(e) { colunas = []; }}
-        if (!Array.isArray(colunas)) colunas = ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído'];
+        const proj = (this.projetos || []).find(p => p.id === projetoId);
+        let colunas = proj?.colunasKanban;
+        if (typeof colunas === 'string') { try { colunas = JSON.parse(colunas); } catch (_) { colunas = null; } }
+        if (!Array.isArray(colunas) || colunas.length === 0) colunas = DEFAULT_COLUNAS;
         colunas.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c; opt.textContent = c;
             selColuna.appendChild(opt);
         });
-        if (tarefaId) {
-            const tCol = this.kanbanTarefas.find(x => x.id === tarefaId)
-                       || (this.backlogItems || []).find(x => x.id === tarefaId);
-            if (tCol) selColuna.value = tCol.coluna || 'Backlog';
-        } else {
-            selColuna.value = colunaDefault || 'Backlog';
-        }
+        const colVal = tarefaId
+            ? (this.kanbanTarefas.find(x => x.id === tarefaId) || (this.backlogItems || []).find(x => x.id === tarefaId))?.coluna
+            : (colunaDefault || 'Backlog');
+        selColuna.value = colVal || 'Backlog';
 
-        // Popula select de atividade
-        const selAtividadeModal = document.getElementById('tarefaAtividadeId');
-        if (selAtividadeModal) {
-            selAtividadeModal.innerHTML = '<option value="">Sem atividade</option>';
-            (this.kanbanAtividades || []).forEach(a => {
-                const opt = document.createElement('option');
-                opt.value = a.id;
-                opt.textContent = a.nome;
-                selAtividadeModal.appendChild(opt);
-            });
-            if (tarefaId) {
-                const tAtiv = this.kanbanTarefas.find(x => x.id === tarefaId)
-                           || (this.backlogItems || []).find(x => x.id === tarefaId);
-                selAtividadeModal.value = tAtiv?.atividadeId || '';
-            } else {
-                selAtividadeModal.value = this.kanbanAtividadeAtual?.id || '';
-            }
-        }
+        // Clear atividade select (kept in HTML for compatibility with lancamentos)
+        const selAtiv = document.getElementById('tarefaAtividadeId');
+        if (selAtiv) selAtiv.innerHTML = '<option value="">Sem atividade</option>';
 
-        // Populate parent select based on tipo
         this.onTarefaTipoChange(document.getElementById('tarefaTipo').value, parentIdDefault);
-
         modal.classList.add('active');
     },
 
@@ -436,8 +409,8 @@ Object.assign(ControleHoras.prototype, {
         const titulo = document.getElementById('tarefaTitulo').value.trim();
         if (!titulo) { this.mostrarToast('Informe o título da tarefa.', 'error'); return; }
 
-        const projetoId = this.kanbanProjetoAtual?.id;
-        if (!projetoId) { this.mostrarToast('Nenhum projeto selecionado.', 'error'); return; }
+        const projetoId = document.getElementById('tarefaProjetoId').value || this.kanbanProjetoAtual?.id;
+        if (!projetoId) { this.mostrarToast('Tarefa sem projeto associado.', 'error'); return; }
 
         const tagsRaw = document.getElementById('tarefaTagsValue').value;
         const dados = {
@@ -449,7 +422,7 @@ Object.assign(ControleHoras.prototype, {
             dataPrevisao: document.getElementById('tarefaDataPrevisao').value || null,
             dataEntrega: document.getElementById('tarefaDataEntrega').value || null,
             projetoId,
-            atividadeId: document.getElementById('tarefaAtividadeId')?.value || null,
+            atividadeId: null,
             tipo: document.getElementById('tarefaTipo').value || 'task',
             parentId: document.getElementById('tarefaParentId').value || null,
             prioridade: parseInt(document.getElementById('tarefaPrioridade').value) || 3,
@@ -480,12 +453,10 @@ Object.assign(ControleHoras.prototype, {
             }
 
             this.fecharModalTarefa();
-            if (this.kanbanProjetoAtual) {
-                if (this.currentKanbanView === 'board') {
-                    await this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual?.id || null);
-                } else {
-                    await this._carregarBacklogKanban();
-                }
+            if (this.currentKanbanView === 'board') {
+                await this.carregarKanbanBoard();
+            } else {
+                await this._carregarBacklogKanban();
             }
         } catch (e) {
             this.mostrarToast('Erro ao salvar tarefa.', 'error');
@@ -497,7 +468,7 @@ Object.assign(ControleHoras.prototype, {
         if (!id) return;
         const ok = await Dialog.confirm({
             title: 'Excluir Tarefa',
-            message: 'Tem certeza que deseja excluir esta tarefa do Kanban?',
+            message: 'Tem certeza que deseja excluir esta tarefa?',
             type: 'danger',
             confirmText: 'Excluir',
             cancelText: 'Cancelar'
@@ -512,7 +483,7 @@ Object.assign(ControleHoras.prototype, {
             this.fecharModalTarefa();
             this.mostrarToast('Tarefa excluída!', 'success');
             if (this.currentKanbanView === 'board') {
-                await this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual?.id || null);
+                await this.carregarKanbanBoard();
             } else {
                 await this._carregarBacklogKanban();
             }
@@ -521,174 +492,156 @@ Object.assign(ControleHoras.prototype, {
         }
     },
 
-    // ─── CRUD de Atividades ───
-    abrirModalAtividade(atividadeId) {
-        this.popularSelectResponsavelAtividade();
+    // ─── Modal Criar Tarefa ───
+    abrirModalCriarTarefa(colunaDefault) {
+        const modal = document.getElementById('modalCriarTarefa');
+        if (!modal) return;
 
-        const modal = document.getElementById('modalAtividade');
-        document.getElementById('formAtividade').reset();
+        document.getElementById('criarTarefaCliente').value     = '';
+        document.getElementById('criarTarefaProjeto').value     = '';
+        document.getElementById('criarTarefaProjeto').innerHTML = '<option value="">Selecione um cliente primeiro</option>';
+        document.getElementById('criarTarefaEpico').value       = '';
+        document.getElementById('criarTarefaEpico').innerHTML   = '<option value="">Sem épico</option>';
+        document.getElementById('criarTarefaTitulo').value      = '';
+        document.getElementById('criarTarefaDescricao').value   = '';
+        document.getElementById('criarTarefaPrioridade').value  = '3';
+        document.getElementById('criarTarefaColuna').innerHTML  = DEFAULT_COLUNAS.map(c => `<option value="${c}">${c}</option>`).join('');
+        document.getElementById('criarTarefaColuna').value      = colunaDefault || 'A Fazer';
+        document.getElementById('criarTarefaEstimativa').value  = '';
 
-        if (atividadeId) {
-            const a = this.kanbanAtividades.find(x => x.id === atividadeId);
-            if (!a) return;
-            document.getElementById('atividadeId').value = a.id;
-            document.getElementById('atividadeNome').value = a.nome;
-            document.getElementById('atividadeDescricao').value = a.descricao || '';
-            document.getElementById('atividadeCor').value = a.cor || '#f97316';
-            document.getElementById('atividadeResponsavel').value = a.responsavelId || '';
-            document.getElementById('modalAtividadeTitulo').textContent = 'Editar Atividade';
-            document.getElementById('btnExcluirAtividade').style.display = 'inline-flex';
-            document.getElementById('importarAtividadesSection').style.display = 'none';
-        } else {
-            document.getElementById('atividadeId').value = '';
-            document.getElementById('atividadeCor').value = '#f97316';
-            document.getElementById('atividadeResponsavel').value = '';
-            document.getElementById('modalAtividadeTitulo').textContent = 'Nova Atividade';
-            document.getElementById('btnExcluirAtividade').style.display = 'none';
-            document.getElementById('importarAtividadesSection').style.display = 'block';
+        // Populate responsável for create modal
+        const selResp = document.getElementById('criarTarefaResponsavel');
+        if (selResp) {
+            selResp.innerHTML = '<option value="">Nenhum</option>';
+            (this.equipe || []).forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id; opt.textContent = u.nome;
+                selResp.appendChild(opt);
+            });
+        }
+        this.atualizarSelectResponsavelKanban();
+
+        // Pre-fill from current filters
+        const fCliente = document.getElementById('kanbanFiltroCliente');
+        const fProjeto = document.getElementById('kanbanFiltroProjeto');
+        if (fCliente?.value) {
+            document.getElementById('criarTarefaCliente').value = fCliente.value;
+            this.onCriarTarefaClienteChange(fCliente.value);
+        }
+        if (fProjeto?.value) {
+            document.getElementById('criarTarefaProjeto').value = fProjeto.value;
+            this.onCriarTarefaProjetoChange(fProjeto.value);
         }
 
         modal.classList.add('active');
     },
 
-    fecharModalAtividade() {
-        document.getElementById('modalAtividade').classList.remove('active');
+    fecharModalCriarTarefa() {
+        const modal = document.getElementById('modalCriarTarefa');
+        if (modal) modal.classList.remove('active');
     },
 
-    async salvarAtividade() {
-        const id = document.getElementById('atividadeId').value;
-        const nome = document.getElementById('atividadeNome').value.trim();
-        if (!nome) { this.mostrarToast('Informe o nome da atividade.', 'error'); return; }
+    onCriarTarefaClienteChange(clienteId) {
+        const selProjeto = document.getElementById('criarTarefaProjeto');
+        selProjeto.innerHTML = '<option value="">Selecione um projeto</option>';
+        const projetos = (this.projetos || []).filter(p => !clienteId || String(p.clienteId) === String(clienteId));
+        projetos.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id; opt.textContent = p.nome;
+            selProjeto.appendChild(opt);
+        });
+        // Reset épico
+        document.getElementById('criarTarefaEpico').innerHTML = '<option value="">Sem épico</option>';
+    },
+
+    async onCriarTarefaProjetoChange(projetoId) {
+        const selEpico  = document.getElementById('criarTarefaEpico');
+        const selColuna = document.getElementById('criarTarefaColuna');
+        selEpico.innerHTML = '<option value="">Sem épico</option>';
+
+        if (!projetoId) return;
+
+        // Load epics
+        try {
+            const r = await fetch(`${this.apiBaseUrl}/epicos/${projetoId}`, {
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            const epicos = await r.json();
+            epicos.forEach(ep => {
+                const opt = document.createElement('option');
+                opt.value = ep.id; opt.textContent = ep.titulo;
+                selEpico.appendChild(opt);
+            });
+        } catch (_) {}
+
+        // Update colunas from project
+        const proj = (this.projetos || []).find(p => String(p.id) === String(projetoId));
+        let colunas = proj?.colunasKanban;
+        if (typeof colunas === 'string') { try { colunas = JSON.parse(colunas); } catch (_) { colunas = null; } }
+        if (!Array.isArray(colunas) || colunas.length === 0) colunas = DEFAULT_COLUNAS;
+        selColuna.innerHTML = colunas.map(c => `<option value="${c}">${c}</option>`).join('');
+        selColuna.value = 'A Fazer';
+    },
+
+    async criarEpicoInline() {
+        const projetoId = document.getElementById('criarTarefaProjeto').value;
+        if (!projetoId) { this.mostrarToast('Selecione um projeto primeiro.', 'error'); return; }
+        const titulo = prompt('Nome do novo épico:');
+        if (!titulo || !titulo.trim()) return;
+        try {
+            const r = await fetch(`${this.apiBaseUrl}/tarefas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                body: JSON.stringify({ id: this.gerarId(), projetoId, titulo: titulo.trim(), tipo: 'epic', coluna: 'Backlog', prioridade: 3, ordem: 0 })
+            });
+            if (!r.ok) throw new Error();
+            const criado = await r.json();
+            const selEpico = document.getElementById('criarTarefaEpico');
+            const opt = document.createElement('option');
+            opt.value = criado.id || criado.tarefa?.id; opt.textContent = titulo.trim();
+            selEpico.appendChild(opt);
+            selEpico.value = opt.value;
+            this.mostrarToast('Épico criado!', 'success');
+        } catch (_) {
+            this.mostrarToast('Erro ao criar épico.', 'error');
+        }
+    },
+
+    async salvarTarefaNova() {
+        const titulo = document.getElementById('criarTarefaTitulo').value.trim();
+        if (!titulo) { this.mostrarToast('Informe o título da tarefa.', 'error'); return; }
+        const projetoId = document.getElementById('criarTarefaProjeto').value;
+        if (!projetoId) { this.mostrarToast('Selecione um projeto.', 'error'); return; }
 
         const dados = {
-            nome,
-            descricao: document.getElementById('atividadeDescricao').value.trim(),
-            cor: document.getElementById('atividadeCor').value,
-            projetoId: this.kanbanProjetoAtual.id,
-            responsavelId: document.getElementById('atividadeResponsavel').value || null
+            id: this.gerarId(),
+            titulo,
+            descricao: document.getElementById('criarTarefaDescricao').value.trim(),
+            projetoId,
+            parentId: document.getElementById('criarTarefaEpico').value || null,
+            tipo: 'task',
+            coluna: document.getElementById('criarTarefaColuna').value || 'A Fazer',
+            prioridade: parseInt(document.getElementById('criarTarefaPrioridade').value) || 3,
+            responsavelId: document.getElementById('criarTarefaResponsavel').value || null,
+            estimativaHoras: parseFloat(document.getElementById('criarTarefaEstimativa').value) || null,
+            ordem: 0
         };
 
         try {
-            if (id) {
-                await fetch(`${this.apiBaseUrl}/atividades/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
-                    body: JSON.stringify(dados)
-                });
-                this.mostrarToast('Atividade atualizada!', 'success');
-            } else {
-                dados.id = this.gerarId();
-                await fetch(`${this.apiBaseUrl}/atividades`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
-                    body: JSON.stringify(dados)
-                });
-                this.mostrarToast('Atividade criada!', 'success');
-            }
-
-            this.fecharModalAtividade();
-            // Refresh atividades select
-            await this.onKanbanProjetoChange(this.kanbanProjetoAtual.id);
-        } catch (e) {
-            this.mostrarToast('Erro ao salvar atividade.', 'error');
-        }
-    },
-
-    async excluirAtividade() {
-        const id = document.getElementById('atividadeId').value;
-        if (!id) return;
-        const ok = await Dialog.confirm({
-            title: 'Excluir Atividade',
-            message: 'Excluir esta atividade removerá também todas as tarefas vinculadas. Deseja continuar?',
-            type: 'danger',
-            confirmText: 'Excluir',
-            cancelText: 'Cancelar'
-        });
-        if (!ok) return;
-
-        try {
-            await fetch(`${this.apiBaseUrl}/atividades/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': 'Bearer ' + this.token }
+            const r = await fetch(`${this.apiBaseUrl}/tarefas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                body: JSON.stringify(dados)
             });
-            this.fecharModalAtividade();
-            this.mostrarToast('Atividade excluída!', 'success');
-            this.kanbanAtividadeAtual = null;
-            await this.onKanbanProjetoChange(this.kanbanProjetoAtual.id);
-            this._resetKanbanBoard();
-        } catch (e) {
-            this.mostrarToast('Erro ao excluir atividade.', 'error');
+            if (!r.ok) throw new Error();
+            this.fecharModalCriarTarefa();
+            this.mostrarToast('Tarefa criada!', 'success');
+            await this.carregarKanbanBoard();
+        } catch (_) {
+            this.mostrarToast('Erro ao criar tarefa.', 'error');
         }
     },
 
-    // ─── Importar Atividades Sugeridas ───
-    abrirImportarAtividades() {
-        this.fecharModalAtividade();
-        const modal = document.getElementById('modalImportarAtividades');
-        const container = document.getElementById('checklistAtividades');
-
-        // Filter out already existing activities
-        const existentes = this.kanbanAtividades.map(a => a.nome.toLowerCase());
-
-        container.innerHTML = ATIVIDADES_SUGERIDAS.map((a, i) => {
-            const jaExiste = existentes.includes(a.nome.toLowerCase());
-            return `
-            <label class="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-white/[0.04] transition-colors ${jaExiste ? 'opacity-40' : ''}"
-                   style="border:1px solid rgba(255,255,255,0.06);">
-                <input type="checkbox" class="atividade-check" data-index="${i}" ${jaExiste ? 'disabled' : 'checked'}
-                       style="accent-color:#f97316;width:18px;height:18px;">
-                <span class="flex-1">
-                    <span class="font-medium text-sm" style="color:${a.cor};">${this.escapeHtml(a.nome)}</span>
-                    <span class="text-xs text-neutral-500 block">${this.escapeHtml(a.descricao)}</span>
-                </span>
-                ${jaExiste ? '<span class="text-xs text-neutral-500">Já existe</span>' : ''}
-            </label>`;
-        }).join('');
-
-        modal.classList.add('active');
-    },
-
-    fecharImportarAtividades() {
-        document.getElementById('modalImportarAtividades').classList.remove('active');
-    },
-
-    toggleAllAtividades() {
-        const checks = document.querySelectorAll('.atividade-check:not(:disabled)');
-        const allChecked = [...checks].every(c => c.checked);
-        checks.forEach(c => { c.checked = !allChecked; });
-    },
-
-    async importarAtividadesSelecionadas() {
-        const checks = document.querySelectorAll('.atividade-check:checked:not(:disabled)');
-        if (checks.length === 0) {
-            this.mostrarToast('Selecione pelo menos uma atividade.', 'error');
-            return;
-        }
-
-        try {
-            for (const check of checks) {
-                const idx = parseInt(check.dataset.index);
-                const sugestao = ATIVIDADES_SUGERIDAS[idx];
-                await fetch(`${this.apiBaseUrl}/atividades`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
-                    body: JSON.stringify({
-                        id: this.gerarId(),
-                        projetoId: this.kanbanProjetoAtual.id,
-                        nome: sugestao.nome,
-                        descricao: sugestao.descricao,
-                        cor: sugestao.cor
-                    })
-                });
-            }
-
-            this.fecharImportarAtividades();
-            this.mostrarToast(`${checks.length} atividade(s) importada(s)!`, 'success');
-            await this.onKanbanProjetoChange(this.kanbanProjetoAtual.id);
-        } catch (e) {
-            this.mostrarToast('Erro ao importar atividades.', 'error');
-        }
-    },
 
     // ─── Gerenciamento de Colunas ───
     _colunaDragItem: null,
@@ -779,19 +732,6 @@ Object.assign(ControleHoras.prototype, {
         const div = this._criarColunaEditorItem('', 'Nome da coluna');
         container.appendChild(div);
         div.querySelector('input').focus();
-    },
-
-    // ─── Responsável Atividade ───
-    popularSelectResponsavelAtividade() {
-        const select = document.getElementById('atividadeResponsavel');
-        if (!select) return;
-        let html = '<option value="">Nenhum</option>';
-        if (this.equipe) {
-            this.equipe.forEach(u => {
-                html += `<option value="${u.id}">${this.escapeHtml(u.nome)}</option>`;
-            });
-        }
-        select.innerHTML = html;
     },
 
     // ─── Tags ───
@@ -984,8 +924,8 @@ Object.assign(ControleHoras.prototype, {
             if (idx !== -1) this.projetos[idx].colunasKanban = colunas;
 
             this.fecharModalColunas();
-            this.renderKanban();
             this.mostrarToast('Colunas atualizadas!', 'success');
+            await this.carregarKanbanBoard();
         } catch (e) {
             this.mostrarToast('Erro ao salvar colunas.', 'error');
         }
@@ -1011,14 +951,12 @@ Object.assign(ControleHoras.prototype, {
             tabBacklog.style.color        = view === 'backlog' ? '#f97316' : 'rgba(255,255,255,0.4)';
         }
 
-        this._updateButtonStates();
+        this._atualizarBtnEditarColunas();
 
-        if (this.kanbanProjetoAtual) {
-            if (view === 'backlog') {
-                this._carregarBacklogKanban();
-            } else {
-                this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual?.id || null);
-            }
+        if (view === 'backlog') {
+            this._carregarBacklogKanban();
+        } else {
+            this.carregarKanbanBoard();
         }
     },
 
@@ -1031,10 +969,16 @@ Object.assign(ControleHoras.prototype, {
 
     async _carregarBacklogKanban() {
         this._initBacklogState();
-        const projetoId = this.kanbanProjetoAtual?.id;
-        if (!projetoId) return;
+        const projetoId = this.kanbanFiltros?.projeto
+                       || document.getElementById('kanbanFiltroProjeto')?.value
+                       || this.kanbanProjetoAtual?.id;
 
         const bt = document.getElementById('backlogTree');
+        if (!projetoId) {
+            if (bt) bt.innerHTML = '<p class="text-neutral-400 text-center py-10 text-sm">Selecione um projeto no filtro acima para ver o backlog.</p>';
+            return;
+        }
+
         if (bt) bt.innerHTML = '<p class="text-neutral-500 text-center py-10 text-sm"><i class="bi bi-arrow-repeat mr-2"></i>Carregando backlog...</p>';
         this.backlogItems = [];
         this.backlogExpandedNodes.clear();
