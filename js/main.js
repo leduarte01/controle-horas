@@ -26,6 +26,11 @@ function navegarPara(secao) {
     if (secao === 'kanban' && controleHoras && controleHoras.inicializarKanban) {
         controleHoras.inicializarKanban();
     }
+
+    // Inicializar Backlog quando acessar a aba
+    if (secao === 'backlog' && controleHoras && controleHoras.inicializarBacklog) {
+        controleHoras.inicializarBacklog();
+    }
     
     // Carregar Equipe quando acessar a aba
     if (secao === 'equipe' && controleHoras && controleHoras.carregarEquipe) {
@@ -146,6 +151,12 @@ function aplicarFiltros()     { controleHoras.aplicarFiltros(); }
 function exportarExcel()      { controleHoras.exportarExcel(); }
 function exportarPDF()        { controleHoras.exportarPDF(); }
 function exportarRelatorio()  { controleHoras.exportarRelatorio(); }
+
+// Backlog global wrappers
+function criarEpico()                          { controleHoras.criarEpico(); }
+function adicionarFilhoBacklog(pId, tipo)      { controleHoras.adicionarFilhoBacklog(pId, tipo); }
+function toggleNoBacklog(id)                   { controleHoras.toggleNoBacklog(id); }
+function atualizarStatusBacklog(id, status)    { controleHoras.atualizarStatusBacklog(id, status); }
 
 // ── Initialize application ──
 document.addEventListener('DOMContentLoaded', () => {

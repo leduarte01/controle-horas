@@ -134,6 +134,9 @@
         <button class="nav-item" data-section="relatorios" onclick="navegarPara('relatorios')">
             <span class="nav-icon"><i class="bi bi-graph-up"></i></span><span>Relatórios</span>
         </button>
+        <button class="nav-item" data-section="backlog" onclick="navegarPara('backlog')">
+            <span class="nav-icon"><i class="bi bi-list-task"></i></span><span>Backlog</span>
+        </button>
         <button class="nav-item" data-section="kanban" onclick="navegarPara('kanban')">
             <span class="nav-icon"><i class="bi bi-kanban"></i></span><span>Kanban</span>
         </button>
@@ -370,7 +373,13 @@
                             </div>
                             <div class="mb-4">
                                 <label class="form-label" for="atividadeLancamento">Atividade</label>
-                                <input type="text" class="form-control" id="atividadeLancamento" placeholder="Ex: Suporte, Desenvolvimento, Reunião..." required>
+                                <select class="form-control" id="atividadeLancamento" required>
+                                    <option value="">Selecione uma atividade...</option>
+                                </select>
+                                <div id="semAtividadesHint" style="display:none;margin-top:6px;" class="text-xs text-neutral-500">
+                                    <i class="bi bi-info-circle mr-1"></i>Nenhuma atividade cadastrada para este projeto.
+                                    <a href="#" onclick="navegarPara('kanban');return false;" style="color:#f97316;text-decoration:underline;">Criar no Kanban</a>
+                                </div>
                             </div>
                             <div class="mb-4">
                                 <label class="form-label" for="descricaoAtividade">Descrição</label>
@@ -585,6 +594,39 @@
             </div>
         </section>
 
+        <!-- ══ Backlog ══ -->
+        <section id="section-backlog" class="page-section">
+            <div class="mb-8">
+                <div class="inline-flex items-center gap-2 mb-3">
+                    <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
+                    <span class="text-xs font-bold tracking-widest uppercase text-orange-500/80">Planejamento</span>
+                </div>
+                <h1 class="text-4xl font-medium tracking-tighter">Backlog</h1>
+            </div>
+            <div class="glass-card mb-5 p-4">
+                <div class="flex flex-wrap gap-4 items-end">
+                    <div style="min-width:180px;">
+                        <label class="form-label">Cliente</label>
+                        <select class="form-control" id="backlogClienteSelect" onchange="controleHoras.onBacklogClienteChange(this.value)">
+                            <option value="">Selecione um cliente</option>
+                        </select>
+                    </div>
+                    <div style="min-width:220px;">
+                        <label class="form-label">Projeto</label>
+                        <select class="form-control" id="backlogProjetoSelect" disabled onchange="controleHoras.onBacklogProjetoChange(this.value)">
+                            <option value="">Selecione um projeto</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn-primary" id="btnNovoEpico" disabled onclick="controleHoras.criarEpico()">
+                        <i class="bi bi-plus-lg mr-1"></i>Novo Épico
+                    </button>
+                </div>
+            </div>
+            <div id="backlogTree">
+                <p class="text-neutral-500 text-center py-16 text-sm">Selecione um cliente e projeto para visualizar o backlog.</p>
+            </div>
+        </section>
+
     </main>
 </div>
 
@@ -595,8 +637,29 @@
             <span><i class="bi bi-card-checklist mr-2 text-orange-500/70"></i><span id="modalTarefaTitulo">Nova Tarefa</span></span>
             <button class="btn-ghost" style="padding:4px 8px;" onclick="controleHoras.fecharModalTarefa();"><i class="bi bi-x-lg"></i></button>
         </div>
-        <form id="formTarefa" class="p-5" onsubmit="event.preventDefault(); controleHoras.salvarTarefa();">
+        <form id="formTarefa" class="p-5" onsubmit="event.preventDefault(); controleHoras.salvarTarefa();" style="max-height:85vh;overflow-y:auto;">
             <input type="hidden" id="tarefaId">
+            <input type="hidden" id="tarefaParentId">
+
+            <!-- Tipo + Item Pai -->
+            <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label" for="tarefaTipo">Tipo</label>
+                    <select class="form-control" id="tarefaTipo" onchange="controleHoras.onTarefaTipoChange(this.value)">
+                        <option value="task">✅ Task</option>
+                        <option value="userstory">📖 User Story</option>
+                        <option value="feature">🎯 Feature</option>
+                        <option value="epic">👑 Épico</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="tarefaParentSelect">Item Pai</label>
+                    <select class="form-control" id="tarefaParentSelect">
+                        <option value="">Sem pai</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="mb-4">
                 <label class="form-label" for="tarefaTitulo">Título *</label>
                 <input type="text" class="form-control" id="tarefaTitulo" required placeholder="Ex: Implementar login">
@@ -605,6 +668,25 @@
                 <label class="form-label" for="tarefaDescricao">Descrição</label>
                 <textarea class="form-control" id="tarefaDescricao" rows="3" placeholder="Detalhes da tarefa..."></textarea>
             </div>
+
+            <!-- Prioridade + Estimativa -->
+            <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label" for="tarefaPrioridade">Prioridade</label>
+                    <select class="form-control" id="tarefaPrioridade">
+                        <option value="1">🔴 Alta</option>
+                        <option value="2">🟡 Média</option>
+                        <option value="3" selected>🔵 Normal</option>
+                        <option value="4">⚪ Baixa</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="tarefaEstimativaHoras">Estimativa (horas)</label>
+                    <input type="number" class="form-control" id="tarefaEstimativaHoras" min="0" step="0.5" placeholder="Ex: 4">
+                </div>
+            </div>
+
+            <!-- Coluna + Responsável -->
             <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="form-label" for="tarefaColuna">Coluna</label>
@@ -618,6 +700,16 @@
                 </div>
             </div>
 
+            <!-- Tags -->
+            <div class="mb-4">
+                <label class="form-label">Tags</label>
+                <div id="tarefaTagsContainer" style="display:flex;flex-wrap:wrap;gap:6px;min-height:38px;padding:6px 8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;align-items:center;">
+                    <input type="text" id="tarefaTagsInput" placeholder="Adicionar tag e pressionar Enter..." style="background:transparent;border:none;outline:none;color:inherit;font-size:0.875rem;min-width:140px;flex:1;" onkeydown="controleHoras.onTagKeydown(event)">
+                </div>
+                <input type="hidden" id="tarefaTagsValue">
+            </div>
+
+            <!-- Datas -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
                 <div>
                     <label class="form-label" for="tarefaDataInicio">Data Início</label>
@@ -632,6 +724,21 @@
                     <input type="date" class="form-control" id="tarefaDataEntrega">
                 </div>
             </div>
+
+            <!-- Seção de Comentários (visível só em modo edição) -->
+            <div id="comentariosSection" style="display:none;" class="mb-5">
+                <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:16px;margin-bottom:12px;">
+                    <h4 class="text-sm font-semibold text-neutral-300 mb-3"><i class="bi bi-chat-left-text mr-2 text-orange-500/70"></i>Discussão</h4>
+                    <div id="listaComentarios" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;"></div>
+                    <div style="display:flex;gap:8px;align-items:flex-start;">
+                        <textarea id="novoComentarioTexto" class="form-control" rows="2" placeholder="Adicione um comentário..." style="flex:1;"></textarea>
+                        <button type="button" class="btn-primary" style="padding:8px 14px;white-space:nowrap;" onclick="controleHoras.adicionarComentario()">
+                            <i class="bi bi-send mr-1"></i>Comentar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="flex gap-3 justify-between">
                 <button type="button" id="btnExcluirTarefa" class="btn-ghost" style="color:#ef4444;display:none;" onclick="controleHoras.excluirTarefa();">
                     <i class="bi bi-trash mr-1"></i>Excluir
@@ -687,6 +794,12 @@
             <div class="mb-4">
                 <label class="form-label" for="atividadeDescricao">Descrição</label>
                 <textarea class="form-control" id="atividadeDescricao" rows="2" placeholder="Detalhes da atividade..."></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="form-label" for="atividadeResponsavel">Responsável</label>
+                <select class="form-control" id="atividadeResponsavel">
+                    <option value="">Sem responsável</option>
+                </select>
             </div>
             <div class="mb-5">
                 <label class="form-label" for="atividadeCor">Cor</label>
@@ -784,6 +897,7 @@
 <script src="js/dashboard.js"></script>
 <script src="js/relatorios.js"></script>
 <script src="js/kanban.js"></script>
+<script src="js/backlog.js"></script>
 <script src="js/equipe.js"></script>
 <script src="js/main.js"></script>
 

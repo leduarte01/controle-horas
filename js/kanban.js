@@ -298,10 +298,17 @@ Object.assign(ControleHoras.prototype, {
     },
 
     // ─── Modal de Tarefa (criar/editar) ───
-    abrirModalTarefa(tarefaId, colunaDefault) {
+    // tipo: 'task'|'userstory'|'feature'|'epic'  parentId: id string or null
+    abrirModalTarefa(tarefaId, colunaDefault, tipoDefault, parentIdDefault) {
+        // Ensure responsável select is populated
+        this.atualizarSelectResponsavelKanban();
+
         const modal = document.getElementById('modalTarefa');
         const form  = document.getElementById('formTarefa');
         form.reset();
+
+        // Reset tags UI
+        this._setTagsUI([]);
 
         const fp = window.fpInstances || {};
         const setDate = (id, val) => {
@@ -309,34 +316,52 @@ Object.assign(ControleHoras.prototype, {
             else { document.getElementById(id).value = val || ''; }
         };
 
+        // Determine project for parent select population
+        const projetoId = this.kanbanProjetoAtual?.id || this.backlogProjeto?.id || null;
+
         if (tarefaId) {
-            const t = this.kanbanTarefas.find(x => x.id === tarefaId);
+            // Try kanban list first, then backlog items
+            const t = this.kanbanTarefas.find(x => x.id === tarefaId)
+                   || (this.backlogItems || []).find(x => x.id === tarefaId);
             if (!t) return;
-            document.getElementById('tarefaId').value = t.id;
-            document.getElementById('tarefaTitulo').value = t.titulo;
-            document.getElementById('tarefaDescricao').value = t.descricao || '';
-            document.getElementById('tarefaColuna').value = t.coluna;
+            document.getElementById('tarefaId').value         = t.id;
+            document.getElementById('tarefaTipo').value       = t.tipo || 'task';
+            document.getElementById('tarefaParentId').value   = t.parentId || '';
+            document.getElementById('tarefaTitulo').value      = t.titulo;
+            document.getElementById('tarefaDescricao').value  = t.descricao || '';
+            document.getElementById('tarefaColuna').value     = t.coluna || 'Backlog';
             document.getElementById('tarefaResponsavel').value = t.responsavelId || '';
+            document.getElementById('tarefaPrioridade').value  = t.prioridade || 3;
+            document.getElementById('tarefaEstimativaHoras').value = t.estimativaHoras || '';
+            this._setTagsUI(t.tags ? (typeof t.tags === 'string' ? JSON.parse(t.tags) : t.tags) : []);
             setDate('tarefaDataInicio', t.dataInicio);
             setDate('tarefaDataPrevisao', t.dataPrevisao);
             setDate('tarefaDataEntrega', t.dataEntrega);
             document.getElementById('modalTarefaTitulo').textContent = 'Editar Tarefa';
             document.getElementById('btnExcluirTarefa').style.display = 'inline-flex';
+            document.getElementById('comentariosSection').style.display = 'block';
+            document.getElementById('novoComentarioTexto').value = '';
+            this.carregarComentarios(t.id);
         } else {
             document.getElementById('tarefaId').value = '';
-            document.getElementById('tarefaColuna').value = colunaDefault || 'Backlog';
+            document.getElementById('tarefaTipo').value       = tipoDefault || 'task';
+            document.getElementById('tarefaParentId').value   = parentIdDefault || '';
+            document.getElementById('tarefaColuna').value     = colunaDefault || 'Backlog';
             document.getElementById('tarefaResponsavel').value = '';
+            document.getElementById('tarefaPrioridade').value  = 3;
+            document.getElementById('tarefaEstimativaHoras').value = '';
             setDate('tarefaDataInicio', '');
             setDate('tarefaDataPrevisao', '');
             setDate('tarefaDataEntrega', '');
             document.getElementById('modalTarefaTitulo').textContent = 'Nova Tarefa';
             document.getElementById('btnExcluirTarefa').style.display = 'none';
+            document.getElementById('comentariosSection').style.display = 'none';
         }
 
         // Popula select de colunas
         const selColuna = document.getElementById('tarefaColuna');
         selColuna.innerHTML = '';
-        let colunas = this.kanbanProjetoAtual?.colunasKanban;
+        let colunas = this.kanbanProjetoAtual?.colunasKanban || this.backlogProjeto?.colunasKanban;
         if (typeof colunas === 'string') { try { colunas = JSON.parse(colunas); } catch(e) { colunas = []; }}
         if (!Array.isArray(colunas)) colunas = ['Backlog', 'A Fazer', 'Em Andamento', 'Revisão', 'Concluído'];
         colunas.forEach(c => {
@@ -345,11 +370,15 @@ Object.assign(ControleHoras.prototype, {
             selColuna.appendChild(opt);
         });
         if (tarefaId) {
-            const t = this.kanbanTarefas.find(x => x.id === tarefaId);
-            if (t) selColuna.value = t.coluna;
+            const t = this.kanbanTarefas.find(x => x.id === tarefaId)
+                   || (this.backlogItems || []).find(x => x.id === tarefaId);
+            if (t) selColuna.value = t.coluna || 'Backlog';
         } else {
             selColuna.value = colunaDefault || 'Backlog';
         }
+
+        // Populate parent select based on tipo
+        this.onTarefaTipoChange(document.getElementById('tarefaTipo').value, parentIdDefault);
 
         modal.classList.add('active');
     },
@@ -363,6 +392,10 @@ Object.assign(ControleHoras.prototype, {
         const titulo = document.getElementById('tarefaTitulo').value.trim();
         if (!titulo) { this.mostrarToast('Informe o título da tarefa.', 'error'); return; }
 
+        const projetoId = this.kanbanProjetoAtual?.id || this.backlogProjeto?.id;
+        if (!projetoId) { this.mostrarToast('Nenhum projeto selecionado.', 'error'); return; }
+
+        const tagsRaw = document.getElementById('tarefaTagsValue').value;
         const dados = {
             titulo,
             descricao: document.getElementById('tarefaDescricao').value.trim(),
@@ -371,13 +404,19 @@ Object.assign(ControleHoras.prototype, {
             dataInicio: document.getElementById('tarefaDataInicio').value || null,
             dataPrevisao: document.getElementById('tarefaDataPrevisao').value || null,
             dataEntrega: document.getElementById('tarefaDataEntrega').value || null,
-            projetoId: this.kanbanProjetoAtual.id,
-            atividadeId: this.kanbanAtividadeAtual?.id || null
+            projetoId,
+            atividadeId: this.kanbanAtividadeAtual?.id || null,
+            tipo: document.getElementById('tarefaTipo').value || 'task',
+            parentId: document.getElementById('tarefaParentId').value || null,
+            prioridade: parseInt(document.getElementById('tarefaPrioridade').value) || 3,
+            estimativaHoras: parseFloat(document.getElementById('tarefaEstimativaHoras').value) || null,
+            tags: tagsRaw || null
         };
 
         try {
             if (id) {
-                const t = this.kanbanTarefas.find(x => x.id === id);
+                const t = this.kanbanTarefas.find(x => x.id === id)
+                       || (this.backlogItems || []).find(x => x.id === id);
                 dados.ordem = t ? t.ordem : 0;
                 await fetch(`${this.apiBaseUrl}/tarefas/${id}`, {
                     method: 'PUT',
@@ -397,7 +436,10 @@ Object.assign(ControleHoras.prototype, {
             }
 
             this.fecharModalTarefa();
-            await this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual?.id);
+            if (this.kanbanAtividadeAtual && this.kanbanProjetoAtual) {
+                await this.carregarKanban(this.kanbanProjetoAtual.id, this.kanbanAtividadeAtual.id);
+            }
+            await this._refreshBacklogIfVisible();
         } catch (e) {
             this.mostrarToast('Erro ao salvar tarefa.', 'error');
         }
@@ -430,6 +472,8 @@ Object.assign(ControleHoras.prototype, {
 
     // ─── CRUD de Atividades ───
     abrirModalAtividade(atividadeId) {
+        this.popularSelectResponsavelAtividade();
+
         const modal = document.getElementById('modalAtividade');
         document.getElementById('formAtividade').reset();
 
@@ -440,12 +484,14 @@ Object.assign(ControleHoras.prototype, {
             document.getElementById('atividadeNome').value = a.nome;
             document.getElementById('atividadeDescricao').value = a.descricao || '';
             document.getElementById('atividadeCor').value = a.cor || '#f97316';
+            document.getElementById('atividadeResponsavel').value = a.responsavelId || '';
             document.getElementById('modalAtividadeTitulo').textContent = 'Editar Atividade';
             document.getElementById('btnExcluirAtividade').style.display = 'inline-flex';
             document.getElementById('importarAtividadesSection').style.display = 'none';
         } else {
             document.getElementById('atividadeId').value = '';
             document.getElementById('atividadeCor').value = '#f97316';
+            document.getElementById('atividadeResponsavel').value = '';
             document.getElementById('modalAtividadeTitulo').textContent = 'Nova Atividade';
             document.getElementById('btnExcluirAtividade').style.display = 'none';
             document.getElementById('importarAtividadesSection').style.display = 'block';
@@ -467,7 +513,8 @@ Object.assign(ControleHoras.prototype, {
             nome,
             descricao: document.getElementById('atividadeDescricao').value.trim(),
             cor: document.getElementById('atividadeCor').value,
-            projetoId: this.kanbanProjetoAtual.id
+            projetoId: this.kanbanProjetoAtual.id,
+            responsavelId: document.getElementById('atividadeResponsavel').value || null
         };
 
         try {
@@ -681,6 +728,176 @@ Object.assign(ControleHoras.prototype, {
         const div = this._criarColunaEditorItem('', 'Nome da coluna');
         container.appendChild(div);
         div.querySelector('input').focus();
+    },
+
+    // ─── Responsável Atividade ───
+    popularSelectResponsavelAtividade() {
+        const select = document.getElementById('atividadeResponsavel');
+        if (!select) return;
+        let html = '<option value="">Nenhum</option>';
+        if (this.equipe) {
+            this.equipe.forEach(u => {
+                html += `<option value="${u.id}">${this.escapeHtml(u.nome)}</option>`;
+            });
+        }
+        select.innerHTML = html;
+    },
+
+    // ─── Tags ───
+    _currentTags: [],
+
+    _setTagsUI(tags) {
+        this._currentTags = Array.isArray(tags) ? [...tags] : [];
+        this._renderTagChips();
+    },
+
+    _renderTagChips() {
+        const container = document.getElementById('tarefaTagsContainer');
+        if (!container) return;
+        // Remove existing chips
+        container.querySelectorAll('.tag-chip').forEach(el => el.remove());
+        // Insert chips before input
+        const input = document.getElementById('tarefaTagsInput');
+        this._currentTags.forEach(tag => {
+            const span = document.createElement('span');
+            span.className = 'tag-chip';
+            span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;background:rgba(249,115,22,0.2);color:#f97316;font-size:0.75rem;cursor:default;';
+            span.innerHTML = `${this.escapeHtml(tag)} <button type="button" onclick="controleHoras.removeTag('${this.escapeHtml(tag)}')" style="background:none;border:none;cursor:pointer;color:inherit;padding:0;font-size:0.8rem;line-height:1;">&times;</button>`;
+            container.insertBefore(span, input);
+        });
+        document.getElementById('tarefaTagsValue').value = this._currentTags.length ? JSON.stringify(this._currentTags) : '';
+    },
+
+    addTag(tag) {
+        const clean = tag.trim().replace(/,/g, '').substring(0, 30);
+        if (!clean || this._currentTags.includes(clean)) return;
+        this._currentTags.push(clean);
+        this._renderTagChips();
+    },
+
+    removeTag(tag) {
+        this._currentTags = this._currentTags.filter(t => t !== tag);
+        this._renderTagChips();
+    },
+
+    onTagKeydown(event) {
+        const input = event.target;
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            this.addTag(input.value);
+            input.value = '';
+        } else if (event.key === 'Backspace' && !input.value && this._currentTags.length) {
+            this._currentTags.pop();
+            this._renderTagChips();
+        }
+    },
+
+    // ─── Tipo da Tarefa → habilita/popula select pai ───
+    onTarefaTipoChange(tipo, forceParentId) {
+        const selParent = document.getElementById('tarefaParentSelect');
+        if (!selParent) return;
+        const PARENT_TIPO = { task: 'userstory', userstory: 'feature', feature: 'epic', epic: null };
+        const parentTipo = PARENT_TIPO[tipo];
+        selParent.innerHTML = '<option value="">Sem pai</option>';
+
+        if (!parentTipo) {
+            selParent.disabled = true;
+            document.getElementById('tarefaParentId').value = '';
+            return;
+        }
+
+        const allItems = [...(this.kanbanTarefas || []), ...(this.backlogItems || [])];
+        const potentials = allItems.filter(i => i.tipo === parentTipo);
+        potentials.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.titulo;
+            selParent.appendChild(opt);
+        });
+        selParent.disabled = potentials.length === 0;
+
+        const currentParentId = forceParentId || document.getElementById('tarefaParentId').value;
+        if (currentParentId) {
+            selParent.value = currentParentId;
+            document.getElementById('tarefaParentId').value = selParent.value;
+        }
+
+        // Sync hidden field on change
+        selParent.onchange = () => {
+            document.getElementById('tarefaParentId').value = selParent.value;
+        };
+    },
+
+    // ─── Comentários ───
+    async carregarComentarios(tarefaId) {
+        const lista = document.getElementById('listaComentarios');
+        if (!lista) return;
+        lista.innerHTML = '<p class="text-xs text-neutral-500">Carregando...</p>';
+        try {
+            const resp = await fetch(`${this.apiBaseUrl}/tarefas/${tarefaId}/comentarios`, {
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            const comentarios = await resp.json();
+            if (!comentarios.length) {
+                lista.innerHTML = '<p class="text-xs text-neutral-500 italic">Nenhum comentário ainda.</p>';
+                return;
+            }
+            lista.innerHTML = comentarios.map(c => {
+                const data = new Date(c.dataCriacao).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                const isAuthor = this.usuario && (c.usuarioId == this.usuario.id || this.usuario.role === 'admin');
+                return `
+                <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,0.06);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <span style="font-size:0.8rem;font-weight:600;color:#f97316;">${this.escapeHtml(c.autorNome || 'Usuário')}</span>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:0.7rem;color:#64748b;">${data}</span>
+                            ${isAuthor ? `<button type="button" onclick="controleHoras.excluirComentario('${c.id}')" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:0.75rem;padding:0;"><i class="bi bi-trash"></i></button>` : ''}
+                        </div>
+                    </div>
+                    <p style="font-size:0.875rem;color:#cbd5e1;margin:0;white-space:pre-wrap;">${this.escapeHtml(c.texto)}</p>
+                </div>`;
+            }).join('');
+        } catch(e) {
+            lista.innerHTML = '<p class="text-xs text-red-400">Erro ao carregar comentários.</p>';
+        }
+    },
+
+    async adicionarComentario() {
+        const tarefaId = document.getElementById('tarefaId').value;
+        const texto = document.getElementById('novoComentarioTexto').value.trim();
+        if (!tarefaId || !texto) { this.mostrarToast('Digite um comentário.', 'error'); return; }
+        try {
+            await fetch(`${this.apiBaseUrl}/tarefas/${tarefaId}/comentarios`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                body: JSON.stringify({ texto })
+            });
+            document.getElementById('novoComentarioTexto').value = '';
+            await this.carregarComentarios(tarefaId);
+        } catch(e) {
+            this.mostrarToast('Erro ao comentar.', 'error');
+        }
+    },
+
+    async excluirComentario(comentarioId) {
+        const tarefaId = document.getElementById('tarefaId').value;
+        const ok = await Dialog.confirm({
+            title: 'Excluir Comentário',
+            message: 'Deseja remover este comentário?',
+            type: 'danger',
+            confirmText: 'Excluir',
+            cancelText: 'Cancelar'
+        });
+        if (!ok) return;
+        try {
+            await fetch(`${this.apiBaseUrl}/comentarios/${comentarioId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            await this.carregarComentarios(tarefaId);
+        } catch(e) {
+            this.mostrarToast('Erro ao excluir comentário.', 'error');
+        }
     },
 
     async salvarColunasKanban() {

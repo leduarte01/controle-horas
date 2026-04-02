@@ -3,15 +3,46 @@
  */
 Object.assign(ControleHoras.prototype, {
 
+    // Popula o select de atividades quando o projeto muda no form de lançamento
+    async onProjetoLancamentoChange(projetoId) {
+        const sel  = document.getElementById('atividadeLancamento');
+        const hint = document.getElementById('semAtividadesHint');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Selecione uma atividade...</option>';
+        if (!projetoId) {
+            if (hint) hint.style.display = 'none';
+            return;
+        }
+        try {
+            const resp = await fetch(`${this.apiBaseUrl}/atividades/${projetoId}`, {
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            const atividades = await resp.json();
+            atividades.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.textContent = a.nome;
+                sel.appendChild(opt);
+            });
+            if (hint) hint.style.display = atividades.length === 0 ? 'block' : 'none';
+        } catch(e) {
+            if (hint) hint.style.display = 'none';
+        }
+    },
+
     lancarHoras() {
         const projetoId  = document.getElementById('projetoLancamento').value;
         const data       = document.getElementById('dataLancamento').value;
         const horaInicio = document.getElementById('horaInicio').value;
         const horaFim    = document.getElementById('horaFim').value;
-        const atividade  = document.getElementById('atividadeLancamento').value.trim();
+        const selAtiv    = document.getElementById('atividadeLancamento');
+        const atividadeId = selAtiv.value || null;
+        const atividade   = atividadeId
+            ? (selAtiv.options[selAtiv.selectedIndex]?.text || '')
+            : '';
         const descricao  = document.getElementById('descricaoAtividade').value.trim();
 
-        if (!projetoId || !data || !horaInicio || !horaFim || !atividade) {
+        if (!projetoId || !data || !horaInicio || !horaFim || !atividadeId) {
             this.mostrarToast('Preencha todos os campos obrigatórios.', 'error'); return;
         }
         if (horaInicio >= horaFim) {
@@ -38,6 +69,7 @@ Object.assign(ControleHoras.prototype, {
                     projetoId, data, horaInicio, horaFim,
                     duracao:    parseFloat(duracao.toFixed(2)),
                     atividade,
+                    atividadeId,
                     descricao,
                     valorTotal: parseFloat(valorTotal.toFixed(2)),
                     dataAtualizacao: new Date().toISOString()
@@ -50,6 +82,7 @@ Object.assign(ControleHoras.prototype, {
                 projetoId, data, horaInicio, horaFim,
                 duracao:     parseFloat(duracao.toFixed(2)),
                 atividade,
+                atividadeId,
                 descricao,
                 valorTotal:  parseFloat(valorTotal.toFixed(2)),
                 dataLancamento: new Date().toISOString()
@@ -99,18 +132,22 @@ Object.assign(ControleHoras.prototype, {
         this.editandoLancamento = lanc;
         navegarPara('lancamento');
 
-        setTimeout(() => {
+        setTimeout(async () => {
             document.getElementById('projetoLancamento').value = lanc.projetoId;
-            document.getElementById('projetoLancamento').dispatchEvent(new Event('change', { bubbles: true }));
+            // Populate atividades for this project, then set value
+            await this.onProjetoLancamentoChange(lanc.projetoId);
+            const selAtiv = document.getElementById('atividadeLancamento');
+            if (lanc.atividadeId) {
+                selAtiv.value = lanc.atividadeId;
+            }
             if (window.fpInstances && window.fpInstances['dataLancamento']) {
                 window.fpInstances['dataLancamento'].setDate(lanc.data, true);
             } else {
                 document.getElementById('dataLancamento').value = lanc.data;
             }
-            document.getElementById('horaInicio').value          = lanc.horaInicio;
-            document.getElementById('horaFim').value             = lanc.horaFim;
-            document.getElementById('atividadeLancamento').value  = lanc.atividade || '';
-            document.getElementById('descricaoAtividade').value   = lanc.descricao || '';
+            document.getElementById('horaInicio').value         = lanc.horaInicio;
+            document.getElementById('horaFim').value            = lanc.horaFim;
+            document.getElementById('descricaoAtividade').value = lanc.descricao || '';
             this.alternarModoEdicaoLancamento(true);
             this.calcularTempo();
             document.getElementById('formLancamento').scrollIntoView({ behavior: 'smooth' });

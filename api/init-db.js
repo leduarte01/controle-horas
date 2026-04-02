@@ -163,6 +163,34 @@ async function initDB() {
       ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE;
       ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "atividadeId" VARCHAR(50) REFERENCES atividades("id") ON DELETE CASCADE;
       ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "responsavelId" INT REFERENCES usuarios("id") ON DELETE SET NULL;
+
+      -- Hierarquia Epic→Feature→UserStory→Task
+      ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "tipo" VARCHAR(20) DEFAULT 'task';
+      ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "parentId" VARCHAR(50) REFERENCES tarefas("id") ON DELETE SET NULL;
+      ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "status" VARCHAR(50) DEFAULT 'Planejado';
+
+      -- Campos estendidos da tarefa
+      ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "prioridade" INT DEFAULT 3;
+      ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "estimativaHoras" FLOAT;
+      ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS "tags" TEXT;
+
+      -- Responsável em Atividades
+      ALTER TABLE atividades ADD COLUMN IF NOT EXISTS "responsavelId" INT REFERENCES usuarios("id") ON DELETE SET NULL;
+
+      -- Vínculo com atividade cadastrada em Lançamentos
+      ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "atividadeId" VARCHAR(50) REFERENCES atividades("id") ON DELETE SET NULL;
+    `);
+
+    console.log('Criando tabela de Comentários de Tarefas...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tarefas_comentarios (
+        "id" VARCHAR(50) PRIMARY KEY,
+        "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE,
+        "tarefaId" VARCHAR(50) REFERENCES tarefas("id") ON DELETE CASCADE,
+        "usuarioId" INT REFERENCES usuarios("id") ON DELETE SET NULL,
+        "texto" TEXT NOT NULL,
+        "dataCriacao" VARCHAR(50)
+      );
     `);
 
     // System Provisioning

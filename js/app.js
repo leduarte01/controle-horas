@@ -52,6 +52,9 @@ class ControleHoras {
         this.carregarDados();
         this.atualizarDashboard();
         this.definirDataAtual();
+        if (this.inicializarBacklog) {
+            this.inicializarBacklog();
+        }
     }
 
     setupEventListeners() {
@@ -72,6 +75,10 @@ class ControleHoras {
 
         document.getElementById('horaInicio').addEventListener('change', () => this.calcularTempo());
         document.getElementById('horaFim').addEventListener('change',    () => this.calcularTempo());
+
+        document.getElementById('projetoLancamento').addEventListener('change', e => {
+            this.onProjetoLancamentoChange(e.target.value);
+        });
 
         document.getElementById('filtroCliente').addEventListener('change',
             () => this.atualizarFiltrosProjeto());

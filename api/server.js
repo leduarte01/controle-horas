@@ -316,8 +316,12 @@ app.delete('/api/projetos/:id', async (req, res) => {
 // --- ATIVIDADES (KANBAN) ---
 app.get('/api/atividades/:projetoId', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM atividades WHERE "projetoId" = $1 AND "empresaId" = $2 ORDER BY "nome" ASC',
+    const { rows } = await pool.query(`
+      SELECT a.*, u."nome" AS "responsavelNome"
+      FROM atividades a
+      LEFT JOIN usuarios u ON u."id" = a."responsavelId"
+      WHERE a."projetoId" = $1 AND a."empresaId" = $2
+      ORDER BY a."nome" ASC`,
       [req.params.projetoId, req.user.empresaId]
     );
     res.json(rows);
@@ -328,12 +332,13 @@ app.post('/api/atividades', async (req, res) => {
   const a = req.body;
   try {
     const query = `
-      INSERT INTO atividades ("id", "empresaId", "usuarioId", "projetoId", "nome", "descricao", "cor", "dataCriacao", "dataAtualizacao")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
+      INSERT INTO atividades ("id", "empresaId", "usuarioId", "projetoId", "nome", "descricao", "cor", "responsavelId", "dataCriacao", "dataAtualizacao")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;
     `;
     const { rows } = await pool.query(query, [
       a.id, req.user.empresaId, req.user.id, a.projetoId, a.nome, a.descricao || '',
-      a.cor || '#f97316', a.dataCriacao || new Date().toISOString(), a.dataAtualizacao || new Date().toISOString()
+      a.cor || '#f97316', a.responsavelId || null,
+      a.dataCriacao || new Date().toISOString(), a.dataAtualizacao || new Date().toISOString()
     ]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -343,11 +348,12 @@ app.put('/api/atividades/:id', async (req, res) => {
   const a = req.body;
   try {
     const query = `
-      UPDATE atividades SET "nome" = $1, "descricao" = $2, "cor" = $3, "dataAtualizacao" = $4
-      WHERE "id" = $5 AND "empresaId" = $6 RETURNING *;
+      UPDATE atividades SET "nome" = $1, "descricao" = $2, "cor" = $3, "responsavelId" = $4, "dataAtualizacao" = $5
+      WHERE "id" = $6 AND "empresaId" = $7 RETURNING *;
     `;
     const { rows } = await pool.query(query, [
-      a.nome, a.descricao || '', a.cor || '#f97316', new Date().toISOString(), req.params.id, req.user.empresaId
+      a.nome, a.descricao || '', a.cor || '#f97316', a.responsavelId || null,
+      new Date().toISOString(), req.params.id, req.user.empresaId
     ]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -360,16 +366,18 @@ app.delete('/api/atividades/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- TAREFAS (KANBAN) ---
+// --- TAREFAS (KANBAN + BACKLOG) ---
 app.get('/api/tarefas/:projetoId', async (req, res) => {
   try {
     const atividadeId = req.query.atividadeId;
     let query, params;
     if (atividadeId) {
-      query = 'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "atividadeId" = $2 AND "empresaId" = $3 ORDER BY "ordem" ASC';
+      // Kanban: apenas tasks da atividade selecionada
+      query = 'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "atividadeId" = $2 AND "empresaId" = $3 AND ("tipo" = \'task\' OR "tipo" IS NULL) ORDER BY "ordem" ASC';
       params = [req.params.projetoId, atividadeId, req.user.empresaId];
     } else {
-      query = 'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "empresaId" = $2 ORDER BY "ordem" ASC';
+      // Backlog: todos os tipos para montar a árvore
+      query = 'SELECT * FROM tarefas WHERE "projetoId" = $1 AND "empresaId" = $2 ORDER BY "tipo" ASC, "ordem" ASC';
       params = [req.params.projetoId, req.user.empresaId];
     }
     const { rows } = await pool.query(query, params);
@@ -381,12 +389,19 @@ app.post('/api/tarefas', async (req, res) => {
   const t = req.body;
   try {
     const query = `
-      INSERT INTO tarefas ("id", "empresaId", "usuarioId", "projetoId", "atividadeId", "responsavelId", "coluna", "titulo", "descricao", "ordem", "dataInicio", "dataPrevisao", "dataEntrega", "dataCriacao", "dataAtualizacao")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *;
+      INSERT INTO tarefas ("id", "empresaId", "usuarioId", "projetoId", "atividadeId", "responsavelId",
+        "coluna", "titulo", "descricao", "ordem",
+        "tipo", "parentId", "status", "prioridade", "estimativaHoras", "tags",
+        "dataInicio", "dataPrevisao", "dataEntrega", "dataCriacao", "dataAtualizacao")
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *;
     `;
     const { rows } = await pool.query(query, [
-      t.id, req.user.empresaId, req.user.id, t.projetoId, t.atividadeId || null, t.responsavelId || null, t.coluna || 'Backlog', t.titulo, t.descricao || '',
-      t.ordem || 0, t.dataInicio || null, t.dataPrevisao || null, t.dataEntrega || null,
+      t.id, req.user.empresaId, req.user.id, t.projetoId,
+      t.atividadeId || null, t.responsavelId || null,
+      t.coluna || 'Backlog', t.titulo, t.descricao || '', t.ordem || 0,
+      t.tipo || 'task', t.parentId || null, t.status || 'Planejado',
+      t.prioridade || 3, t.estimativaHoras || null, t.tags || null,
+      t.dataInicio || null, t.dataPrevisao || null, t.dataEntrega || null,
       t.dataCriacao || new Date().toISOString(), t.dataAtualizacao || new Date().toISOString()
     ]);
     res.json(rows[0]);
@@ -400,15 +415,58 @@ app.put('/api/tarefas/:id', async (req, res) => {
       UPDATE tarefas SET 
         "coluna" = $1, "titulo" = $2, "descricao" = $3, "ordem" = $4,
         "dataInicio" = $5, "dataPrevisao" = $6, "dataEntrega" = $7, "dataAtualizacao" = $8,
-        "responsavelId" = $9
-      WHERE "id" = $10 AND "empresaId" = $11 RETURNING *;
+        "responsavelId" = $9, "tipo" = $10, "parentId" = $11, "status" = $12,
+        "prioridade" = $13, "estimativaHoras" = $14, "tags" = $15
+      WHERE "id" = $16 AND "empresaId" = $17 RETURNING *;
     `;
     const { rows } = await pool.query(query, [
-      t.coluna, t.titulo, t.descricao, t.ordem,
+      t.coluna || 'Backlog', t.titulo, t.descricao || '', t.ordem || 0,
       t.dataInicio || null, t.dataPrevisao || null, t.dataEntrega || null,
-      new Date().toISOString(), t.responsavelId || null, req.params.id, req.user.empresaId
+      new Date().toISOString(), t.responsavelId || null,
+      t.tipo || 'task', t.parentId || null, t.status || 'Planejado',
+      t.prioridade || 3, t.estimativaHoras || null, t.tags || null,
+      req.params.id, req.user.empresaId
     ]);
     res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- COMENTÁRIOS DE TAREFAS ---
+app.get('/api/tarefas/:id/comentarios', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT c.*, u."nome" AS "autorNome"
+      FROM tarefas_comentarios c
+      LEFT JOIN usuarios u ON u."id" = c."usuarioId"
+      WHERE c."tarefaId" = $1 AND c."empresaId" = $2
+      ORDER BY c."dataCriacao" ASC`,
+      [req.params.id, req.user.empresaId]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/tarefas/:id/comentarios', async (req, res) => {
+  const { texto } = req.body;
+  if (!texto || !texto.trim()) return res.status(400).json({ error: 'Texto obrigatório.' });
+  try {
+    const id = require('crypto').randomUUID();
+    const { rows } = await pool.query(`
+      INSERT INTO tarefas_comentarios ("id", "empresaId", "tarefaId", "usuarioId", "texto", "dataCriacao")
+      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [id, req.user.empresaId, req.params.id, req.user.id, texto.trim(), new Date().toISOString()]
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/comentarios/:id', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT "usuarioId" FROM tarefas_comentarios WHERE "id" = $1 AND "empresaId" = $2', [req.params.id, req.user.empresaId]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Comentário não encontrado.' });
+    if (rows[0].usuarioId !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Sem permissão.' });
+    await pool.query('DELETE FROM tarefas_comentarios WHERE "id" = $1', [req.params.id]);
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -461,10 +519,10 @@ app.post('/api/lancamentos', async (req, res) => {
   const l = req.body;
   try {
     const query = `
-      INSERT INTO lancamentos ("id", "projetoId", "data", "horaInicio", "horaFim", "duracao", "atividade", "descricao", "valorTotal", "dataLancamento", "dataAtualizacao", "empresaId", "usuarioId")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *;
+      INSERT INTO lancamentos ("id", "projetoId", "data", "horaInicio", "horaFim", "duracao", "atividade", "atividadeId", "descricao", "valorTotal", "dataLancamento", "dataAtualizacao", "empresaId", "usuarioId")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *;
     `;
-    const { rows } = await pool.query(query, [l.id, l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataLancamento, l.dataAtualizacao, req.user.empresaId, req.user.id]);
+    const { rows } = await pool.query(query, [l.id, l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.atividadeId || null, l.descricao, l.valorTotal, l.dataLancamento, l.dataAtualizacao, req.user.empresaId, req.user.id]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -472,14 +530,12 @@ app.post('/api/lancamentos', async (req, res) => {
 app.put('/api/lancamentos/:id', async (req, res) => {
   const l = req.body;
   try {
-    // Apenas quem criou (ou o sistema, se permitirmos admin) pode editar. 
-    // Por hora, apenas o próprio criador pode editar.
     const query = `
       UPDATE lancamentos SET 
-        "projetoId" = $1, "data" = $2, "horaInicio" = $3, "horaFim" = $4, "duracao" = $5, "atividade" = $6, "descricao" = $7, "valorTotal" = $8, "dataAtualizacao" = $9
-      WHERE "id" = $10 AND "empresaId" = $11 AND "usuarioId" = $12 RETURNING *;
+        "projetoId" = $1, "data" = $2, "horaInicio" = $3, "horaFim" = $4, "duracao" = $5, "atividade" = $6, "atividadeId" = $7, "descricao" = $8, "valorTotal" = $9, "dataAtualizacao" = $10
+      WHERE "id" = $11 AND "empresaId" = $12 AND "usuarioId" = $13 RETURNING *;
     `;
-    const { rows } = await pool.query(query, [l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.descricao, l.valorTotal, l.dataAtualizacao, req.params.id, req.user.empresaId, req.user.id]);
+    const { rows } = await pool.query(query, [l.projetoId, l.data, l.horaInicio, l.horaFim, l.duracao, l.atividade, l.atividadeId || null, l.descricao, l.valorTotal, l.dataAtualizacao, req.params.id, req.user.empresaId, req.user.id]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
