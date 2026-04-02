@@ -814,13 +814,25 @@
             </div>
             <!-- Épico -->
             <div class="mb-4">
-                <label class="form-label" for="criarTarefaEpico">Épico *</label>
+                <label class="form-label" for="criarTarefaEpico">Épico</label>
                 <div style="display:flex;gap:8px;">
-                    <select class="form-control" id="criarTarefaEpico" required style="flex:1;" disabled>
+                    <select class="form-control" id="criarTarefaEpico" style="flex:1;" disabled onchange="controleHoras.onCriarTarefaEpicoChange(this.value)">
                         <option value="">Selecione o projeto</option>
                     </select>
                     <button type="button" class="btn-ghost" style="padding:7px 10px;font-size:0.8125rem;white-space:nowrap;" id="btnCriarEpicoInline" onclick="controleHoras.criarEpicoInline()" disabled title="Criar novo épico">
                         <i class="bi bi-plus-lg"></i> Épico
+                    </button>
+                </div>
+            </div>
+            <!-- Feature -->
+            <div class="mb-4">
+                <label class="form-label" for="criarTarefaFeature">Feature</label>
+                <div style="display:flex;gap:8px;">
+                    <select class="form-control" id="criarTarefaFeature" style="flex:1;" disabled>
+                        <option value="">Selecione o épico</option>
+                    </select>
+                    <button type="button" class="btn-ghost" style="padding:7px 10px;font-size:0.8125rem;white-space:nowrap;" id="btnCriarFeatureInline" onclick="controleHoras.criarFeatureInline()" disabled title="Criar nova feature">
+                        <i class="bi bi-plus-lg"></i> Feature
                     </button>
                 </div>
             </div>

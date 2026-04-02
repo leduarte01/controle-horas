@@ -563,6 +563,19 @@ app.get('/api/epicos/:projetoId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/features/:epicoId — features filhas de um épico
+app.get('/api/features/:epicoId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, titulo FROM tarefas
+       WHERE "parentId" = $1 AND "empresaId" = $2 AND tipo = 'feature'
+       ORDER BY titulo ASC`,
+      [req.params.epicoId, req.user.empresaId]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // --- LANÇAMENTOS ---
 // REGRA: Admin vê tudo da empresa, membro vê apenas os seus
 app.get('/api/lancamentos', async (req, res) => {

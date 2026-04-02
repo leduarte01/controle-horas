@@ -561,8 +561,14 @@ Object.assign(ControleHoras.prototype, {
         });
         // Reset épico e desabilita botão
         document.getElementById('criarTarefaEpico').innerHTML = '<option value="">Sem épico</option>';
+        document.getElementById('criarTarefaEpico').disabled = true;
         const btnEpico = document.getElementById('btnCriarEpicoInline');
         if (btnEpico) btnEpico.disabled = true;
+        // Reset feature
+        document.getElementById('criarTarefaFeature').innerHTML = '<option value="">Selecione o épico</option>';
+        document.getElementById('criarTarefaFeature').disabled = true;
+        const btnFeature = document.getElementById('btnCriarFeatureInline');
+        if (btnFeature) btnFeature.disabled = true;
     },
 
     async onCriarTarefaProjetoChange(projetoId) {
@@ -570,7 +576,13 @@ Object.assign(ControleHoras.prototype, {
         const selColuna = document.getElementById('criarTarefaColuna');
         const btnEpico  = document.getElementById('btnCriarEpicoInline');
         selEpico.innerHTML = '<option value="">Sem épico</option>';
+        selEpico.disabled = !projetoId;
         if (btnEpico) btnEpico.disabled = !projetoId;
+        // Reset feature
+        document.getElementById('criarTarefaFeature').innerHTML = '<option value="">Selecione o épico</option>';
+        document.getElementById('criarTarefaFeature').disabled = true;
+        const btnFeature = document.getElementById('btnCriarFeatureInline');
+        if (btnFeature) btnFeature.disabled = true;
 
         if (!projetoId) return;
 
@@ -596,6 +608,27 @@ Object.assign(ControleHoras.prototype, {
         selColuna.value = 'A Fazer';
     },
 
+    async onCriarTarefaEpicoChange(epicoId) {
+        const selFeature = document.getElementById('criarTarefaFeature');
+        const btnFeature = document.getElementById('btnCriarFeatureInline');
+        selFeature.innerHTML = '<option value="">Sem feature</option>';
+        selFeature.disabled = !epicoId;
+        if (btnFeature) btnFeature.disabled = !epicoId;
+        if (!epicoId) return;
+
+        try {
+            const r = await fetch(`${this.apiBaseUrl}/features/${epicoId}`, {
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            const features = await r.json();
+            features.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f.id; opt.textContent = f.titulo;
+                selFeature.appendChild(opt);
+            });
+        } catch (_) {}
+    },
+
     async criarEpicoInline() {
         const projetoId = document.getElementById('criarTarefaProjeto').value;
         if (!projetoId) { this.mostrarToast('Selecione um projeto primeiro.', 'error'); return; }
@@ -614,9 +647,36 @@ Object.assign(ControleHoras.prototype, {
             opt.value = criado.id; opt.textContent = titulo.trim();
             selEpico.appendChild(opt);
             selEpico.value = opt.value;
+            // Reset feature after new epic
+            await this.onCriarTarefaEpicoChange(criado.id);
             this.mostrarToast('Épico criado!', 'success');
         } catch (_) {
             this.mostrarToast('Erro ao criar épico.', 'error');
+        }
+    },
+
+    async criarFeatureInline() {
+        const epicoId   = document.getElementById('criarTarefaEpico').value;
+        const projetoId = document.getElementById('criarTarefaProjeto').value;
+        if (!epicoId) { this.mostrarToast('Selecione um épico primeiro.', 'error'); return; }
+        const titulo = await Dialog.prompt({ title: 'Nova Feature', placeholder: 'Ex: Autenticação, Relatórios…', confirmText: 'Criar Feature' });
+        if (!titulo) return;
+        try {
+            const r = await fetch(`${this.apiBaseUrl}/tarefas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                body: JSON.stringify({ id: this.gerarId(), projetoId, parentId: epicoId, titulo, tipo: 'feature', coluna: 'Backlog', prioridade: 3, ordem: 0 })
+            });
+            if (!r.ok) throw new Error();
+            const criado = await r.json();
+            const sel = document.getElementById('criarTarefaFeature');
+            const opt = document.createElement('option');
+            opt.value = criado.id; opt.textContent = titulo;
+            sel.appendChild(opt);
+            sel.value = opt.value;
+            this.mostrarToast('Feature criada!', 'success');
+        } catch (_) {
+            this.mostrarToast('Erro ao criar feature.', 'error');
         }
     },
 
@@ -631,7 +691,9 @@ Object.assign(ControleHoras.prototype, {
             titulo,
             descricao: document.getElementById('criarTarefaDescricao').value.trim(),
             projetoId,
-            parentId: document.getElementById('criarTarefaEpico').value || null,
+            parentId: document.getElementById('criarTarefaFeature').value
+                   || document.getElementById('criarTarefaEpico').value
+                   || null,
             tipo: 'task',
             coluna: document.getElementById('criarTarefaColuna').value || 'A Fazer',
             prioridade: parseInt(document.getElementById('criarTarefaPrioridade').value) || 3,
