@@ -403,6 +403,40 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .btn-info-sm:hover { background: rgba(56,189,248,0.22); }
 
 /* ---- Sidebar Navigation ---- */
+.nav-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 6px;
+    user-select: none;
+    transition: background 0.15s;
+}
+.nav-group-header:hover { background: rgba(255,255,255,0.04); }
+.nav-group-header span {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #525252;
+}
+.nav-group-chevron {
+    font-size: 0.65rem;
+    color: #525252;
+    transition: transform 0.2s ease;
+}
+.nav-group-header.collapsed .nav-group-chevron { transform: rotate(-90deg); }
+.nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    overflow: hidden;
+    max-height: 500px;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+    opacity: 1;
+}
+.nav-group.collapsed { max-height: 0; opacity: 0; pointer-events: none; }
 .nav-item {
     width: 100%;
     display: flex;

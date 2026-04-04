@@ -3,6 +3,16 @@
  * This file is loaded LAST so all prototype extensions are already in place.
  */
 
+// ── Sidebar group collapse ──
+function toggleNavGroup(groupId) {
+    const group   = document.getElementById(groupId);
+    const header  = group?.previousElementSibling;
+    const chevron = document.getElementById('chevron-' + groupId);
+    if (!group) return;
+    const isCollapsed = group.classList.toggle('collapsed');
+    header?.classList.toggle('collapsed', isCollapsed);
+}
+
 // ── Section navigation ──
 function navegarPara(secao) {
     // Hide all page sections (remove active-section)
