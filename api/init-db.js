@@ -59,6 +59,7 @@ async function initDB() {
       ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE;
       ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS "nome" VARCHAR(255);
       ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS "role" VARCHAR(20) DEFAULT 'membro';
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS "dataCadastro" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     `);
 
     console.log('Criando tabelas de entidades...');
@@ -237,6 +238,7 @@ async function initDB() {
 
     console.log('Migrando dados existentes para a Empresa Default...');
     // If a record has NO empresaId, give it to the default company
+    await pool.query('UPDATE usuarios SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
     await pool.query('UPDATE clientes SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
     await pool.query('UPDATE projetos SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
     await pool.query('UPDATE lancamentos SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
