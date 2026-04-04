@@ -101,15 +101,6 @@
         <button onclick="realizarLogout()" class="btn-ghost flex items-center py-1.5 px-3 text-sm" title="Sair do Sistema">
             <i class="bi bi-box-arrow-right text-orange-400 mr-2 border-r border-white/10 pr-2"></i>Sair
         </button>
-        <button onclick="exportarRelatorio()" class="btn-glass group">
-            <div class="relative z-20 w-6 h-6 rounded-full bg-gradient-to-b from-orange-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/30 ring-1 ring-white/20 group-hover:scale-110 transition-transform duration-300">
-                <i class="bi bi-download text-white" style="font-size:10px"></i>
-            </div>
-            <span class="hidden sm:inline whitespace-nowrap relative z-10 font-medium tracking-tight text-sm text-white/95 group-hover:text-white transition-colors">Exportar Relatório</span>
-            <span class="hidden sm:inline-flex items-center justify-center z-10 bg-white/10 w-5 h-5 rounded-full relative group-hover:translate-x-0.5 transition-transform text-white/70 group-hover:text-white">
-                <i class="bi bi-arrow-right" style="font-size:10px"></i>
-            </span>
-        </button>
     </div>
 </nav>
 
@@ -513,7 +504,7 @@
             <div class="glass-card">
                 <div class="card-header" style="justify-content:space-between;">
                     <span><i class="bi bi-table mr-2 text-orange-500/70"></i>Relatório de Horas</span>
-                    <div style="display:flex;gap:8px;">
+                    <div id="botoesExportacao" style="display:none;gap:8px;">
                         <button class="btn-success" onclick="exportarExcel()">
                             <i class="bi bi-file-earmark-excel mr-1"></i>Excel
                         </button>

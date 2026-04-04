@@ -62,10 +62,12 @@ Object.assign(ControleHoras.prototype, {
     exibirRelatorio(lancamentos, dataInicio, dataFim) {
         const container = document.getElementById('relatorioHoras');
         const resumo    = document.getElementById('resumoRelatorio');
+        const botoes    = document.getElementById('botoesExportacao');
 
         if (lancamentos.length === 0) {
             container.innerHTML = '<p class="text-neutral-500 text-center py-10 text-sm">Nenhum lançamento encontrado para os filtros aplicados</p>';
             resumo.style.display = 'none';
+            if (botoes) botoes.style.display = 'none';
             return;
         }
 
@@ -148,6 +150,7 @@ Object.assign(ControleHoras.prototype, {
         document.getElementById('periodoRelatorio').textContent = periodo;
 
         resumo.style.display = 'block';
+        if (botoes) botoes.style.display = 'flex';
 
         lancamentos.sort((a, b) => this.parseDateLocal(a.data) - this.parseDateLocal(b.data));
         this.dadosRelatorio = { lancamentos, totalHoras, valorTotal, periodo };
