@@ -243,8 +243,12 @@ async function initDB() {
     await pool.query('UPDATE atividades SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
     await pool.query('UPDATE tarefas SET "empresaId" = $1 WHERE "empresaId" IS NULL;', [defaultEmpresaId]);
 
-    // Migration for specific user email format
-    await pool.query(`UPDATE usuarios SET username = 'leandro@lduarte-consultoria.com.br', role = 'admin' WHERE username = 'leandro' OR username = 'leandro@lduarte-consultoria.com.br'`);
+    // Migration for specific user email format (only if old 'leandro' row exists and email row doesn't yet)
+    await pool.query(`
+      UPDATE usuarios SET username = 'leandro@lduarte-consultoria.com.br', role = 'admin'
+      WHERE username = 'leandro'
+      AND NOT EXISTS (SELECT 1 FROM usuarios WHERE username = 'leandro@lduarte-consultoria.com.br')
+    `);
 
     // Cleanup bad user IDs (e.g. from previous single-user to multi-user attempts)
     await pool.query('UPDATE clientes SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [defaultUsuarioId]);
