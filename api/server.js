@@ -313,15 +313,35 @@ app.delete('/api/projetos/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- ATIVIDADES (KANBAN) ---
+// --- ATIVIDADES ---
+// GET /api/atividades?ativo=true|false|all
+app.get('/api/atividades', async (req, res) => {
+  try {
+    const { ativo } = req.query;
+    let whereAtivo = '';
+    if (ativo === 'true')  whereAtivo = ' AND a."ativo" = true';
+    if (ativo === 'false') whereAtivo = ' AND a."ativo" = false';
+    const { rows } = await pool.query(
+      `SELECT a.*, u."nome" AS "responsavelNome"
+       FROM atividades a
+       LEFT JOIN usuarios u ON u."id" = a."responsavelId"
+       WHERE a."empresaId" = $1${whereAtivo}
+       ORDER BY a."nome" ASC`,
+      [req.user.empresaId]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Mantém rota legada por projetoId usada pelo Kanban
 app.get('/api/atividades/:projetoId', async (req, res) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT a.*, u."nome" AS "responsavelNome"
-      FROM atividades a
-      LEFT JOIN usuarios u ON u."id" = a."responsavelId"
-      WHERE a."projetoId" = $1 AND a."empresaId" = $2
-      ORDER BY a."nome" ASC`,
+    const { rows } = await pool.query(
+      `SELECT a.*, u."nome" AS "responsavelNome"
+       FROM atividades a
+       LEFT JOIN usuarios u ON u."id" = a."responsavelId"
+       WHERE a."projetoId" = $1 AND a."empresaId" = $2
+       ORDER BY a."nome" ASC`,
       [req.params.projetoId, req.user.empresaId]
     );
     res.json(rows);
@@ -332,13 +352,16 @@ app.post('/api/atividades', async (req, res) => {
   const a = req.body;
   try {
     const query = `
-      INSERT INTO atividades ("id", "empresaId", "usuarioId", "projetoId", "nome", "descricao", "cor", "responsavelId", "dataCriacao", "dataAtualizacao")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;
+      INSERT INTO atividades ("id", "empresaId", "usuarioId", "projetoId", "nome", "descricao", "cor", "responsavelId", "ativo", "dataCriacao", "dataAtualizacao")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *;
     `;
     const { rows } = await pool.query(query, [
-      a.id, req.user.empresaId, req.user.id, a.projetoId, a.nome, a.descricao || '',
+      a.id || require('crypto').randomUUID(),
+      req.user.empresaId, req.user.id,
+      a.projetoId || null, a.nome, a.descricao || '',
       a.cor || '#f97316', a.responsavelId || null,
-      a.dataCriacao || new Date().toISOString(), a.dataAtualizacao || new Date().toISOString()
+      true,
+      a.dataCriacao || new Date().toISOString(), new Date().toISOString()
     ]);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -347,20 +370,34 @@ app.post('/api/atividades', async (req, res) => {
 app.put('/api/atividades/:id', async (req, res) => {
   const a = req.body;
   try {
-    const query = `
-      UPDATE atividades SET "nome" = $1, "descricao" = $2, "cor" = $3, "responsavelId" = $4, "dataAtualizacao" = $5
-      WHERE "id" = $6 AND "empresaId" = $7 RETURNING *;
-    `;
-    const { rows } = await pool.query(query, [
-      a.nome, a.descricao || '', a.cor || '#f97316', a.responsavelId || null,
-      new Date().toISOString(), req.params.id, req.user.empresaId
-    ]);
+    // toggle ativo ou edição completa
+    if (Object.prototype.hasOwnProperty.call(a, 'ativo') && Object.keys(a).length === 1) {
+      const { rows } = await pool.query(
+        `UPDATE atividades SET "ativo" = $1, "dataAtualizacao" = $2 WHERE "id" = $3 AND "empresaId" = $4 RETURNING *;`,
+        [a.ativo, new Date().toISOString(), req.params.id, req.user.empresaId]
+      );
+      return res.json(rows[0]);
+    }
+    const { rows } = await pool.query(
+      `UPDATE atividades SET "nome" = $1, "descricao" = $2, "cor" = $3, "responsavelId" = $4, "dataAtualizacao" = $5
+       WHERE "id" = $6 AND "empresaId" = $7 RETURNING *;`,
+      [a.nome, a.descricao || '', a.cor || '#f97316', a.responsavelId || null,
+       new Date().toISOString(), req.params.id, req.user.empresaId]
+    );
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/atividades/:id', async (req, res) => {
   try {
+    // Verifica se há lançamentos vinculados
+    const { rows: usages } = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM lancamentos WHERE "atividadeId" = $1 AND "empresaId" = $2`,
+      [req.params.id, req.user.empresaId]
+    );
+    if (parseInt(usages[0].cnt) > 0) {
+      return res.status(409).json({ error: 'Atividade possui lançamentos vinculados. Desative-a em vez de excluir.' });
+    }
     await pool.query('DELETE FROM atividades WHERE "id" = $1 AND "empresaId" = $2', [req.params.id, req.user.empresaId]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }

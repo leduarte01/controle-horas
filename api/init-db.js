@@ -179,6 +179,10 @@ async function initDB() {
 
       -- Vínculo com atividade cadastrada em Lançamentos
       ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS "atividadeId" VARCHAR(50) REFERENCES atividades("id") ON DELETE SET NULL;
+
+      -- Atividades independentes: ativo/inativo, projetoId nullable
+      ALTER TABLE atividades ADD COLUMN IF NOT EXISTS "ativo" BOOLEAN DEFAULT true;
+      ALTER TABLE atividades ALTER COLUMN "projetoId" DROP NOT NULL;
     `);
 
     // Número sequencial por tarefa (usado nos cards do Kanban)

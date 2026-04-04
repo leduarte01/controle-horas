@@ -3,7 +3,7 @@
  */
 Object.assign(ControleHoras.prototype, {
 
-    // Popula o select de atividades quando o projeto muda no form de lançamento
+    // Popula o select de atividades (catálogo global, filtradas por ativo=true)
     async onProjetoLancamentoChange(projetoId) {
         const sel  = document.getElementById('atividadeLancamento');
         const hint = document.getElementById('semAtividadesHint');
@@ -14,7 +14,7 @@ Object.assign(ControleHoras.prototype, {
             return;
         }
         try {
-            const resp = await fetch(`${this.apiBaseUrl}/atividades/${projetoId}`, {
+            const resp = await fetch(`${this.apiBaseUrl}/atividades?ativo=true`, {
                 headers: { 'Authorization': 'Bearer ' + this.token }
             });
             const atividades = await resp.json();
@@ -42,7 +42,7 @@ Object.assign(ControleHoras.prototype, {
             : '';
         const descricao  = document.getElementById('descricaoAtividade').value.trim();
 
-        if (!projetoId || !data || !horaInicio || !horaFim || !atividadeId) {
+        if (!projetoId || !data || !horaInicio || !horaFim) {
             this.mostrarToast('Preencha todos os campos obrigatórios.', 'error'); return;
         }
         if (horaInicio >= horaFim) {

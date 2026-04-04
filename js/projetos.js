@@ -65,9 +65,6 @@ Object.assign(ControleHoras.prototype, {
                                 <td style="font-size:0.8125rem;white-space:nowrap;color:#fb923c;">R$ ${p.valorHora.toFixed(2)}</td>
                                 <td>
                                     <div class="action-cell">
-                                        <button class="btn-info-sm" onclick="controleHoras.abrirAtividades('${p.id}', '${p.nome.replace(/'/g, "\\'")}'" title="Gerenciar atividades">
-                                            <i class="bi bi-tag"></i>
-                                        </button>
                                         <button class="btn-warning-sm" onclick="controleHoras.editarProjeto('${p.id}')">
                                             <i class="bi bi-pencil"></i>
                                         </button>
@@ -135,85 +132,6 @@ Object.assign(ControleHoras.prototype, {
             header.innerHTML = '<i class="bi bi-folder-plus mr-2" style="color:rgba(249,115,22,0.7)"></i>Cadastrar Projeto';
             btnSubmit.querySelector('.btn-icon').className = 'bi bi-check-lg mr-1 btn-icon';
             btnSubmit.querySelector('.btn-label').textContent = 'Cadastrar';
-        }
-    },
-
-    async abrirAtividades(projetoId, projetoNome) {
-        this.projetoAtividadesAtivo = projetoId;
-        document.getElementById('nomeProjetoAtividades').textContent = projetoNome;
-        document.getElementById('nomeNovaAtividade').value = '';
-        const panel = document.getElementById('panelAtividades');
-        panel.style.display = 'block';
-        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        await this.carregarAtividadesProjeto(projetoId);
-    },
-
-    async carregarAtividadesProjeto(projetoId) {
-        const lista = document.getElementById('listaAtividades');
-        lista.innerHTML = '<p class="text-neutral-500 text-center py-4 text-sm">Carregando...</p>';
-        try {
-            const resp = await fetch(`${this.apiBaseUrl}/atividades/${projetoId}`, {
-                headers: { 'Authorization': 'Bearer ' + this.token }
-            });
-            const atividades = await resp.json();
-            if (atividades.length === 0) {
-                lista.innerHTML = '<p class="text-neutral-500 text-center py-4 text-sm">Nenhuma atividade cadastrada para este projeto.</p>';
-                return;
-            }
-            lista.innerHTML = `
-                <div style="display:flex;flex-direction:column;gap:8px;">
-                    ${atividades.map(a => `
-                        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:8px;border:1px solid rgba(255,255,255,0.07);">
-                            <span style="font-size:0.875rem;font-weight:500;">${a.nome}</span>
-                            <button class="btn-danger-sm" onclick="controleHoras.excluirAtividade('${a.id}')" title="Excluir atividade">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    `).join('')}
-                </div>`;
-        } catch(e) {
-            lista.innerHTML = '<p class="text-red-400 text-center py-4 text-sm">Erro ao carregar atividades.</p>';
-        }
-    },
-
-    async criarAtividade() {
-        const nome = document.getElementById('nomeNovaAtividade').value.trim();
-        if (!nome) { this.mostrarToast('Informe o nome da atividade.', 'error'); return; }
-        const projetoId = this.projetoAtividadesAtivo;
-        if (!projetoId) return;
-        try {
-            const resp = await fetch(`${this.apiBaseUrl}/atividades`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
-                body: JSON.stringify({ projetoId, nome, descricao: '', cor: '#fb923c', responsavelId: null })
-            });
-            if (!resp.ok) throw new Error();
-            document.getElementById('nomeNovaAtividade').value = '';
-            await this.carregarAtividadesProjeto(projetoId);
-            this.mostrarToast('Atividade criada com sucesso!', 'success');
-        } catch(e) {
-            this.mostrarToast('Erro ao criar atividade.', 'error');
-        }
-    },
-
-    async excluirAtividade(id) {
-        const ok = await Dialog.confirm({
-            title: 'Excluir Atividade',
-            message: 'Tem certeza que deseja excluir esta atividade? Lançamentos vinculados perderão o vínculo com a atividade.',
-            type: 'danger',
-            confirmText: 'Excluir',
-            cancelText: 'Cancelar'
-        });
-        if (!ok) return;
-        try {
-            await fetch(`${this.apiBaseUrl}/atividades/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': 'Bearer ' + this.token }
-            });
-            await this.carregarAtividadesProjeto(this.projetoAtividadesAtivo);
-            this.mostrarToast('Atividade excluída.', 'success');
-        } catch(e) {
-            this.mostrarToast('Erro ao excluir atividade.', 'error');
         }
     }
 

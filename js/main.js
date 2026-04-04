@@ -27,6 +27,11 @@ function navegarPara(secao) {
         controleHoras.inicializarKanban();
     }
     
+    // Carregar Atividades quando acessar a aba
+    if (secao === 'atividades' && controleHoras && controleHoras.carregarAtividades) {
+        controleHoras.carregarAtividades();
+    }
+
     // Carregar Equipe quando acessar a aba
     if (secao === 'equipe' && controleHoras && controleHoras.carregarEquipe) {
         controleHoras.carregarEquipe();
