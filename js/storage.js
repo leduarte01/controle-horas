@@ -85,12 +85,14 @@ Object.assign(ControleHoras.prototype, {
     },
 
     atualizarSelectsClientes() {
-        const selects = ['clienteProjeto', 'filtroCliente'];
+        const selects = ['clienteProjeto', 'filtroCliente', 'clienteLancamento'];
         selects.forEach(id => {
             const select = document.getElementById(id);
             if (!select) return;
             const current = select.value;
             select.innerHTML = id === 'filtroCliente'
+                ? '<option value="">Todos os clientes</option>'
+                : id === 'clienteLancamento'
                 ? '<option value="">Todos os clientes</option>'
                 : '<option value="">Selecione um cliente</option>';
             this.clientes.forEach(c => {
@@ -104,18 +106,26 @@ Object.assign(ControleHoras.prototype, {
     },
 
     atualizarSelectsProjetos() {
+        const clienteId = document.getElementById('clienteLancamento')?.value || '';
+        this.filtrarProjetosLancamento(clienteId);
+    },
+
+    filtrarProjetosLancamento(clienteId) {
         const select = document.getElementById('projetoLancamento');
         if (!select) return;
         const current = select.value;
         select.innerHTML = '<option value="">Selecione um projeto</option>';
-        this.projetos.forEach(p => {
+        const lista = clienteId
+            ? this.projetos.filter(p => p.clienteId === clienteId)
+            : this.projetos;
+        lista.forEach(p => {
             const cliente = this.clientes.find(c => c.id === p.clienteId);
             const opt = document.createElement('option');
             opt.value = p.id;
-            opt.textContent = `${cliente ? cliente.nome : 'Cliente não encontrado'} — ${p.nome}`;
+            opt.textContent = clienteId ? p.nome : `${cliente ? cliente.nome : '—'} — ${p.nome}`;
             select.appendChild(opt);
         });
-        if (current && this.projetos.some(p => p.id === current)) select.value = current;
+        if (current && lista.some(p => p.id === current)) select.value = current;
     },
 
     atualizarFiltrosRelatorio() {

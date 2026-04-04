@@ -77,6 +77,13 @@ class ControleHoras {
             this.onProjetoLancamentoChange(e.target.value);
         });
 
+        document.getElementById('clienteLancamento').addEventListener('change', e => {
+            this.filtrarProjetosLancamento(e.target.value);
+            // limpa projeto e atividades ao trocar cliente
+            document.getElementById('projetoLancamento').value = '';
+            this.onProjetoLancamentoChange('');
+        });
+
         document.getElementById('filtroCliente').addEventListener('change',
             () => this.atualizarFiltrosProjeto());
     }

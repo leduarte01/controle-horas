@@ -133,6 +133,12 @@ Object.assign(ControleHoras.prototype, {
         navegarPara('lancamento');
 
         setTimeout(async () => {
+            // Pré-seleciona cliente e filtra projetos antes de setar o projeto
+            const projeto = this.projetos.find(p => p.id === lanc.projetoId);
+            if (projeto) {
+                document.getElementById('clienteLancamento').value = projeto.clienteId;
+                this.filtrarProjetosLancamento(projeto.clienteId);
+            }
             document.getElementById('projetoLancamento').value = lanc.projetoId;
             // Populate atividades for this project, then set value
             await this.onProjetoLancamentoChange(lanc.projetoId);
@@ -181,6 +187,10 @@ Object.assign(ControleHoras.prototype, {
     limparFormLancamento() {
         document.getElementById('formLancamento').reset();
         document.getElementById('tempoCalculado').style.display = 'none';
+        // restaura select de projetos com todos os projetos (sem filtro de cliente)
+        this.filtrarProjetosLancamento('');
+        const hint = document.getElementById('semAtividadesHint');
+        if (hint) hint.style.display = 'none';
         this.editandoLancamento = null;
         this.alternarModoEdicaoLancamento(false);
         this.definirDataAtual();

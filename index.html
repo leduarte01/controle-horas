@@ -373,11 +373,19 @@
                     </div>
                     <div class="p-6">
                         <form id="formLancamento">
-                            <div class="mb-4">
-                                <label class="form-label" for="projetoLancamento">Projeto</label>
-                                <select class="form-control" id="projetoLancamento" required>
-                                    <option value="">Selecione um projeto</option>
-                                </select>
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="form-label" for="clienteLancamento">Cliente</label>
+                                    <select class="form-control" id="clienteLancamento">
+                                        <option value="">Todos os clientes</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label" for="projetoLancamento">Projeto</label>
+                                    <select class="form-control" id="projetoLancamento" required>
+                                        <option value="">Selecione um projeto</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="mb-4">
                                 <label class="form-label" for="dataLancamento">Data</label>
