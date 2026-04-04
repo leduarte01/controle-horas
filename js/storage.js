@@ -168,7 +168,7 @@ Object.assign(ControleHoras.prototype, {
             const cliente = this.clientes.find(c => c.id === p.clienteId);
             const opt = document.createElement('option');
             opt.value = p.id;
-            opt.textContent = `${cliente ? cliente.nome : '—'} — ${p.nome}`;
+            opt.textContent = clienteId ? p.nome : `${cliente ? cliente.nome : '—'} — ${p.nome}`;
             select.appendChild(opt);
         });
     }
