@@ -6,11 +6,10 @@
 // ── Sidebar group collapse ──
 function toggleNavGroup(groupId) {
     const group   = document.getElementById(groupId);
-    const header  = group?.previousElementSibling;
     const chevron = document.getElementById('chevron-' + groupId);
     if (!group) return;
     const isCollapsed = group.classList.toggle('collapsed');
-    header?.classList.toggle('collapsed', isCollapsed);
+    if (chevron) chevron.style.transform = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
 }
 
 // ── Section navigation ──
