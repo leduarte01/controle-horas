@@ -330,6 +330,31 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Panel Atividades do Projeto -->
+            <div id="panelAtividades" style="display:none;" class="mt-6">
+                <div class="glass-card">
+                    <div class="card-header" style="display:flex;align-items:center;gap:8px;">
+                        <i class="bi bi-tag text-orange-500/70"></i>
+                        <span>Atividades de</span>
+                        <span id="nomeProjetoAtividades" style="color:#fff;font-weight:600;"></span>
+                        <button type="button" class="btn-ghost" style="margin-left:auto;padding:4px 10px;font-size:0.75rem;" onclick="document.getElementById('panelAtividades').style.display='none'">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="p-6">
+                        <div style="display:flex;gap:10px;margin-bottom:16px;">
+                            <input type="text" class="form-control" id="nomeNovaAtividade" placeholder="Nome da atividade..." style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();controleHoras.criarAtividade();}">
+                            <button type="button" class="btn-primary" style="white-space:nowrap;" onclick="controleHoras.criarAtividade()">
+                                <i class="bi bi-plus-lg mr-1"></i>Adicionar
+                            </button>
+                        </div>
+                        <div id="listaAtividades">
+                            <p class="text-neutral-500 text-center py-4 text-sm">Nenhuma atividade cadastrada para este projeto.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- ══ Lançamento ══ -->
@@ -375,7 +400,7 @@
                                 </select>
                                 <div id="semAtividadesHint" style="display:none;margin-top:6px;" class="text-xs text-neutral-500">
                                     <i class="bi bi-info-circle mr-1"></i>Nenhuma atividade cadastrada para este projeto.
-                                    <a href="#" onclick="navegarPara('kanban');return false;" style="color:#f97316;text-decoration:underline;">Criar no Kanban</a>
+                                    <a href="#" onclick="navegarPara('projetos');return false;" style="color:#f97316;text-decoration:underline;">Gerenciar em Projetos</a>
                                 </div>
                             </div>
                             <div class="mb-4">
