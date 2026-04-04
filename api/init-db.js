@@ -230,7 +230,8 @@ async function initDB() {
       VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT ("username") DO UPDATE 
       SET "empresaId" = EXCLUDED."empresaId",
-          "role" = 'admin';
+          "role" = 'admin',
+          "nome" = COALESCE(usuarios."nome", EXCLUDED."nome");
     `, [adminUser, dbHash, defaultEmpresaId, 'Administrador do Sistema', 'admin']);
 
     const { rows: userRows } = await pool.query('SELECT id FROM usuarios WHERE username = $1', [adminUser]);
@@ -251,6 +252,9 @@ async function initDB() {
       WHERE username = 'leandro'
       AND NOT EXISTS (SELECT 1 FROM usuarios WHERE username = 'leandro@lduarte-consultoria.com.br')
     `);
+
+    // Fix users with null nome
+    await pool.query(`UPDATE usuarios SET "nome" = "username" WHERE "nome" IS NULL OR "nome" = '';`);
 
     // Cleanup bad user IDs (e.g. from previous single-user to multi-user attempts)
     await pool.query('UPDATE clientes SET "usuarioId" = $1 WHERE "usuarioId" IS NULL;', [defaultUsuarioId]);

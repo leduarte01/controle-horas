@@ -34,11 +34,11 @@ Object.assign(ControleHoras.prototype, {
             <div class="flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold shadow-lg">
-                        ${u.nome.charAt(0).toUpperCase()}
+                        ${(u.nome || u.username || '?').charAt(0).toUpperCase()}
                     </div>
                     <div>
                         <div class="font-medium text-white text-sm flex gap-2 items-center">
-                            ${u.nome}
+                            ${u.nome || u.username}
                             ${u.id === meuId ? '<span class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-neutral-300 uppercase tracking-wider">Você</span>' : ''}
                         </div>
                         <div class="text-xs text-neutral-400"><i class="bi bi-envelope mr-1"></i>${u.username} &bull; <span class="${u.role === 'admin' ? 'text-orange-400' : 'text-neutral-500'}">${u.role === 'admin' ? 'Administrador' : 'Membro'}</span></div>
