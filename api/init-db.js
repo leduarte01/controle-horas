@@ -205,6 +205,20 @@ async function initDB() {
       );
     `);
 
+    console.log('Criando tabela de Grupos de Permissão...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS grupos_permissoes (
+        "id" SERIAL PRIMARY KEY,
+        "empresaId" INT REFERENCES empresas("id") ON DELETE CASCADE,
+        "nome" VARCHAR(100) NOT NULL,
+        "secoes" JSONB DEFAULT '[]',
+        "dataCadastro" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await pool.query(`
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS "grupoId" INT REFERENCES grupos_permissoes("id") ON DELETE SET NULL;
+    `);
+
     // System Provisioning
     console.log('Provisionando Empresa Default...');
     const defaultCnpj = '36.160.198/0001-18';

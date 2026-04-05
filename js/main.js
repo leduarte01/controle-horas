@@ -14,6 +14,14 @@ function toggleNavGroup(groupId) {
 
 // ── Section navigation ──
 function navegarPara(secao) {
+    // Permission check for non-admins
+    if (controleHoras && controleHoras.usuario && controleHoras.usuario.role !== 'admin') {
+        const perm = controleHoras.grupoPermissoes;
+        if (perm && secao !== 'permissoes' && !perm.includes(secao)) {
+            if (controleHoras.mostrarToast) controleHoras.mostrarToast('Acesso não autorizado.', 'error');
+            return;
+        }
+    }
     // Hide all page sections (remove active-section)
     document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active-section'));
 
@@ -44,6 +52,11 @@ function navegarPara(secao) {
     // Carregar Equipe quando acessar a aba
     if (secao === 'equipe' && controleHoras && controleHoras.carregarEquipe) {
         controleHoras.carregarEquipe();
+    }
+
+    // Carregar Permissões quando acessar a aba
+    if (secao === 'permissoes' && controleHoras && controleHoras.carregarGrupos) {
+        controleHoras.carregarGrupos();
     }
 }
 
@@ -151,6 +164,53 @@ async function realizarRegistro(e) {
 
 function realizarLogout() {
     controleHoras.logout();
+}
+
+function aplicarPermissoes() {
+    if (!controleHoras) return;
+    const usuario = controleHoras.usuario;
+    if (!usuario || usuario.role === 'admin') return; // admin vê tudo
+
+    const permissoes = controleHoras.grupoPermissoes || [];
+
+    // Mostrar/ocultar itens do sidebar
+    document.querySelectorAll('.nav-item[data-section]').forEach(btn => {
+        const secao = btn.dataset.section;
+        if (secao === 'permissoes') { btn.style.display = 'none'; return; }
+        btn.style.display = permissoes.includes(secao) ? '' : 'none';
+    });
+
+    // Mostrar/ocultar itens do nav mobile
+    document.querySelectorAll('.mobile-nav-item[data-section]').forEach(btn => {
+        const secao = btn.dataset.section;
+        if (secao === 'permissoes') { btn.style.display = 'none'; return; }
+        btn.style.display = permissoes.includes(secao) ? '' : 'none';
+    });
+
+    // Ocultar grupos do sidebar cujos itens estão todos ocultos
+    ['group-operacional', 'group-cadastros', 'group-ferramentas'].forEach(groupId => {
+        const group = document.getElementById(groupId);
+        if (!group) return;
+        const visible = group.querySelectorAll('.nav-item:not([style*="display: none"])');
+        const header = group.previousElementSibling;
+        if (visible.length === 0) {
+            group.style.display = 'none';
+            if (header) header.style.display = 'none';
+        } else {
+            group.style.display = '';
+            if (header) header.style.display = '';
+        }
+    });
+
+    // Redirecionar se a seção atual não é permitida
+    const activeSection = document.querySelector('.page-section.active-section');
+    if (activeSection) {
+        const currentId = activeSection.id.replace('section-', '');
+        if (currentId !== 'permissoes' && !permissoes.includes(currentId)) {
+            const first = permissoes[0];
+            if (first) navegarPara(first);
+        }
+    }
 }
 
 function limparFormCliente()  { controleHoras.limparFormCliente(); }

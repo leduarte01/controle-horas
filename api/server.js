@@ -55,7 +55,8 @@ app.post('/api/login', async (req, res) => {
                 empresaId: user.empresaId,
                 role: user.role,
                 nome: user.nome,
-                empresaNome: user.empresaNome
+                empresaNome: user.empresaNome,
+                grupoId: user.grupoId || null
             }, SECRET_KEY, { expiresIn: '7d' });
             res.json({ token, username: user.username, nome: user.nome, empresaNome: user.empresaNome, role: user.role });
         } else {
@@ -93,7 +94,7 @@ app.post('/api/register', async (req, res) => {
         
         const user = userRes.rows[0];
         const token = jwt.sign({ 
-            id: user.id, username: user.username, empresaId: user.empresaId, role: user.role, nome: user.nome 
+            id: user.id, username: user.username, empresaId: user.empresaId, role: user.role, nome: user.nome, grupoId: null
         }, SECRET_KEY, { expiresIn: '7d' });
         
         res.json({ success: true, token, username: user.username, role: user.role });
@@ -176,23 +177,26 @@ app.use(express.static(require('path').join(__dirname, '../')));
 
 app.get('/api/usuarios-empresa', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-        'SELECT id, username, nome, role, "dataCadastro" FROM usuarios WHERE "empresaId" = $1 ORDER BY "dataCadastro" ASC', 
-        [req.user.empresaId]
-    );
+    const { rows } = await pool.query(`
+      SELECT u.id, u.username, u.nome, u.role, u."dataCadastro", u."grupoId", g.nome as "grupoNome"
+      FROM usuarios u
+      LEFT JOIN grupos_permissoes g ON u."grupoId" = g.id
+      WHERE u."empresaId" = $1
+      ORDER BY u."dataCadastro" ASC
+    `, [req.user.empresaId]);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/usuarios-empresa', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({error: 'Só administradores podem cadastrar na equipe.'});
-  const { username, password, nome, role } = req.body;
+  const { username, password, nome, role, grupoId } = req.body;
   try {
     const dbHash = hashPassword(password);
     const { rows } = await pool.query(`
-      INSERT INTO usuarios ("empresaId", "username", "passwordHash", "nome", "role")
-      VALUES ($1, $2, $3, $4, $5) RETURNING id, username, nome, role, "dataCadastro"
-    `, [req.user.empresaId, username, dbHash, nome || username, role || 'membro']);
+      INSERT INTO usuarios ("empresaId", "username", "passwordHash", "nome", "role", "grupoId")
+      VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, nome, role, "dataCadastro", "grupoId"
+    `, [req.user.empresaId, username, dbHash, nome || username, role || 'membro', grupoId || null]);
     res.json(rows[0]);
   } catch (err) { 
     res.status(400).json({ error: 'Username já existe ou dados incorretos.' }); 
@@ -201,15 +205,15 @@ app.post('/api/usuarios-empresa', async (req, res) => {
 
 app.put('/api/usuarios-empresa/:id', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({error: 'Ação restrita.'});
-  const { nome, role, password } = req.body;
+  const { nome, role, password, grupoId } = req.body;
   try {
     if (password && password.trim() !== '') {
         const dbHash = hashPassword(password);
-        await pool.query(`UPDATE usuarios SET "nome"=$1, "role"=$2, "passwordHash"=$3 WHERE "id"=$4 AND "empresaId"=$5`,
-            [nome, role, dbHash, req.params.id, req.user.empresaId]);
+        await pool.query(`UPDATE usuarios SET "nome"=$1, "role"=$2, "passwordHash"=$3, "grupoId"=$4 WHERE "id"=$5 AND "empresaId"=$6`,
+            [nome, role, dbHash, grupoId || null, req.params.id, req.user.empresaId]);
     } else {
-        await pool.query(`UPDATE usuarios SET "nome"=$1, "role"=$2 WHERE "id"=$3 AND "empresaId"=$4`,
-            [nome, role, req.params.id, req.user.empresaId]);
+        await pool.query(`UPDATE usuarios SET "nome"=$1, "role"=$2, "grupoId"=$3 WHERE "id"=$4 AND "empresaId"=$5`,
+            [nome, role, grupoId || null, req.params.id, req.user.empresaId]);
     }
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -225,6 +229,62 @@ app.delete('/api/usuarios-empresa/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+
+// ── GRUPOS DE PERMISSÃO ──
+app.get('/api/grupos/me', async (req, res) => {
+  try {
+    if (!req.user.grupoId) return res.json(null);
+    const { rows } = await pool.query(
+      'SELECT * FROM grupos_permissoes WHERE "id" = $1 AND "empresaId" = $2',
+      [req.user.grupoId, req.user.empresaId]
+    );
+    res.json(rows[0] || null);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/grupos', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Restrito a administradores.'});
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM grupos_permissoes WHERE "empresaId" = $1 ORDER BY "dataCadastro" ASC',
+      [req.user.empresaId]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/grupos', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Restrito a administradores.'});
+  const { nome, secoes } = req.body;
+  try {
+    const { rows } = await pool.query(
+      'INSERT INTO grupos_permissoes ("empresaId", "nome", "secoes") VALUES ($1, $2, $3) RETURNING *',
+      [req.user.empresaId, nome, JSON.stringify(secoes || [])]
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/grupos/:id', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Restrito a administradores.'});
+  const { nome, secoes } = req.body;
+  try {
+    const { rows } = await pool.query(
+      'UPDATE grupos_permissoes SET "nome"=$1, "secoes"=$2 WHERE "id"=$3 AND "empresaId"=$4 RETURNING *',
+      [nome, JSON.stringify(secoes || []), req.params.id, req.user.empresaId]
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/grupos/:id', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Restrito a administradores.'});
+  try {
+    await pool.query('UPDATE usuarios SET "grupoId" = NULL WHERE "grupoId" = $1 AND "empresaId" = $2', [req.params.id, req.user.empresaId]);
+    await pool.query('DELETE FROM grupos_permissoes WHERE "id" = $1 AND "empresaId" = $2', [req.params.id, req.user.empresaId]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // =========================================================
 // =================== ROTAS DO SAAS =======================

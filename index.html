@@ -149,6 +149,9 @@
             <button class="nav-item" data-section="equipe" onclick="navegarPara('equipe')">
                 <span class="nav-icon"><i class="bi bi-person-badge"></i></span><span>Minha Equipe</span>
             </button>
+            <button class="nav-item" data-section="permissoes" onclick="navegarPara('permissoes')">
+                <span class="nav-icon"><i class="bi bi-shield-lock"></i></span><span>Permissões</span>
+            </button>
         </div>
     </aside>
 
@@ -684,11 +687,17 @@
                                     <label class="form-label">Senha <span class="text-xs text-neutral-500">(Deixe em branco para não alterar, se editando)</span></label>
                                     <input type="password" class="form-control" id="equipePass">
                                 </div>
-                                <div class="mb-6">
+                                <div class="mb-4">
                                     <label class="form-label">Nível de Acesso</label>
                                     <select class="form-control" id="equipeRole">
                                         <option value="membro">Membro (Somente os próprios lançamentos)</option>
                                         <option value="admin">Administrador (Vê todas as horas e membros)</option>
+                                    </select>
+                                </div>
+                                <div class="mb-6">
+                                    <label class="form-label">Grupo de Permissão <span class="text-xs text-neutral-500">(define quais menus o membro acessa)</span></label>
+                                    <select class="form-control" id="equipeGrupo">
+                                        <option value="">Sem grupo (acesso total do cargo)</option>
                                     </select>
                                 </div>
                                 <div style="display:flex;gap:8px;">
@@ -714,6 +723,84 @@
             </div>
         </section>
 
+        <!-- ══ Permissões ══ -->
+        <section id="section-permissoes" class="page-section">
+            <div class="mb-8">
+                <div class="inline-flex items-center gap-2 mb-3">
+                    <span class="flex h-2 w-2 rounded-full bg-orange-500"></span>
+                    <span class="text-xs font-bold tracking-widest uppercase text-orange-500/80">Administração</span>
+                </div>
+                <h1 class="text-4xl font-medium tracking-tighter">Grupos de Permissão</h1>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <div class="lg:col-span-2">
+                    <div class="glass-card">
+                        <div class="card-header"><i class="bi bi-shield-plus mr-2 text-orange-500/70"></i>Criar / Editar Grupo</div>
+                        <div class="p-6">
+                            <input type="hidden" id="grupoId">
+                            <div class="mb-4">
+                                <label class="form-label">Nome do Grupo</label>
+                                <input type="text" class="form-control" id="grupoNome" placeholder="Ex: Colaborador, Freelancer, Gerente...">
+                            </div>
+                            <div class="mb-6">
+                                <label class="form-label mb-3 block">Seções Permitidas</label>
+                                <div class="space-y-1">
+                                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5">
+                                        <input type="checkbox" class="cb-secao" value="dashboard" style="accent-color:#f97316;width:16px;height:16px;">
+                                        <span class="text-sm text-neutral-300"><i class="bi bi-speedometer2 mr-1 text-orange-400/70"></i>Dashboard</span>
+                                    </label>
+                                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5">
+                                        <input type="checkbox" class="cb-secao" value="lancamento" style="accent-color:#f97316;width:16px;height:16px;">
+                                        <span class="text-sm text-neutral-300"><i class="bi bi-plus-circle mr-1 text-orange-400/70"></i>Lançar Horas</span>
+                                    </label>
+                                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5">
+                                        <input type="checkbox" class="cb-secao" value="relatorios" style="accent-color:#f97316;width:16px;height:16px;">
+                                        <span class="text-sm text-neutral-300"><i class="bi bi-graph-up mr-1 text-orange-400/70"></i>Relatórios</span>
+                                    </label>
+                                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5">
+                                        <input type="checkbox" class="cb-secao" value="clientes" style="accent-color:#f97316;width:16px;height:16px;">
+                                        <span class="text-sm text-neutral-300"><i class="bi bi-people mr-1 text-orange-400/70"></i>Clientes</span>
+                                    </label>
+                                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5">
+                                        <input type="checkbox" class="cb-secao" value="projetos" style="accent-color:#f97316;width:16px;height:16px;">
+                                        <span class="text-sm text-neutral-300"><i class="bi bi-folder mr-1 text-orange-400/70"></i>Projetos</span>
+                                    </label>
+                                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5">
+                                        <input type="checkbox" class="cb-secao" value="atividades" style="accent-color:#f97316;width:16px;height:16px;">
+                                        <span class="text-sm text-neutral-300"><i class="bi bi-tag mr-1 text-orange-400/70"></i>Atividades</span>
+                                    </label>
+                                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5">
+                                        <input type="checkbox" class="cb-secao" value="kanban" style="accent-color:#f97316;width:16px;height:16px;">
+                                        <span class="text-sm text-neutral-300"><i class="bi bi-kanban mr-1 text-orange-400/70"></i>Kanban</span>
+                                    </label>
+                                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5">
+                                        <input type="checkbox" class="cb-secao" value="equipe" style="accent-color:#f97316;width:16px;height:16px;">
+                                        <span class="text-sm text-neutral-300"><i class="bi bi-person-badge mr-1 text-orange-400/70"></i>Minha Equipe</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button type="button" class="btn-primary" style="flex:1;" onclick="controleHoras.salvarGrupo()">
+                                    <div class="points_wrapper"><div class="point"></div></div>
+                                    <i class="bi bi-check-lg mr-1 btn-icon"></i><span class="btn-label">Salvar Grupo</span>
+                                </button>
+                                <button type="button" class="btn-ghost" onclick="controleHoras.limparFormGrupo()">Limpar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-3">
+                    <div class="glass-card">
+                        <div class="card-header border-b border-white/5"><i class="bi bi-shield mr-2 text-orange-500/70"></i>Grupos Criados</div>
+                        <div id="listaGrupos" class="divide-y divide-white/5">
+                            <div class="p-5 text-center text-sm text-neutral-500">Nenhum grupo criado.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
 
     </main>
@@ -1017,6 +1104,7 @@
 <script src="js/relatorios.js"></script>
 <script src="js/kanban.js"></script>
 <script src="js/equipe.js"></script>
+<script src="js/permissoes.js"></script>
 <script src="js/main.js"></script>
 
 <!-- Custom Select init – portal-based, always renders above table/card stacking contexts -->

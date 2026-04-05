@@ -13,6 +13,8 @@ Object.assign(ControleHoras.prototype, {
             this.equipe = await res.json();
             this.renderizarEquipe();
             this.atualizarSelectResponsavelKanban();
+            // Carregar grupos para popular select no form
+            if (this.usuario.role === 'admin' && this.carregarGrupos) await this.carregarGrupos();
         } catch (error) {
             console.error('Erro ao carregar equipe:', error);
         }
@@ -41,7 +43,7 @@ Object.assign(ControleHoras.prototype, {
                             ${u.nome || u.username}
                             ${u.id === meuId ? '<span class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-neutral-300 uppercase tracking-wider">Você</span>' : ''}
                         </div>
-                        <div class="text-xs text-neutral-400"><i class="bi bi-envelope mr-1"></i>${u.username} &bull; <span class="${u.role === 'admin' ? 'text-orange-400' : 'text-neutral-500'}">${u.role === 'admin' ? 'Administrador' : 'Membro'}</span></div>
+                        <div class="text-xs text-neutral-400"><i class="bi bi-envelope mr-1"></i>${u.username} &bull; <span class="${u.role === 'admin' ? 'text-orange-400' : 'text-neutral-500'}">${u.role === 'admin' ? 'Administrador' : 'Membro'}</span>${u.grupoNome ? ` &bull; <span style="color:#fb923c;">${u.grupoNome}</span>` : ''}</div>
                     </div>
                 </div>
                 ${isAdmin ? `
@@ -88,6 +90,8 @@ Object.assign(ControleHoras.prototype, {
         document.getElementById('equipeUser').disabled = true; // username cannot be changed
         document.getElementById('equipePass').value = ''; // left blank -> keep existing
         document.getElementById('equipeRole').value = u.role || 'membro';
+        const grupoEl = document.getElementById('equipeGrupo');
+        if (grupoEl) grupoEl.value = u.grupoId || '';
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
     },
@@ -98,11 +102,13 @@ Object.assign(ControleHoras.prototype, {
             return;
         }
         const id = document.getElementById('equipeId').value;
+        const grupoEl = document.getElementById('equipeGrupo');
         const payload = {
             nome: document.getElementById('equipeNome').value,
             username: document.getElementById('equipeUser').value,
             password: document.getElementById('equipePass').value,
-            role: document.getElementById('equipeRole').value
+            role: document.getElementById('equipeRole').value,
+            grupoId: grupoEl ? (grupoEl.value || null) : null
         };
 
         try {

@@ -15,6 +15,8 @@ class ControleHoras {
         this.editandoProjeto    = null;
         this.editandoLancamento = null;
         this.dadosRelatorio     = null;
+        this.grupos             = [];
+        this.grupoPermissoes    = null;
         this.usuario            = null;
         this.equipe             = [];
 
@@ -48,6 +50,9 @@ class ControleHoras {
         }
         if(this.carregarEquipe) {
             await this.carregarEquipe();
+        }
+        if(this.carregarPermissoesMembro) {
+            await this.carregarPermissoesMembro();
         }
         this.carregarDados();
         this.atualizarDashboard();
