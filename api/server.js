@@ -743,11 +743,19 @@ app.get('/api/features/:epicoId', async (req, res) => {
 });
 
 // --- LANÇAMENTOS ---
-// REGRA: Admin vê tudo da empresa, membro vê apenas os seus
+// REGRA: Admin vê tudo; membro vê tudo se grupo tiver 'verTodosLancamentos', senão só os seus
 app.get('/api/lancamentos', async (req, res) => {
   try {
+    let verTodos = req.user.role === 'admin';
+    if (!verTodos && req.user.grupoId) {
+      const { rows: gRows } = await pool.query(
+        'SELECT secoes FROM grupos_permissoes WHERE id = $1 AND "empresaId" = $2',
+        [req.user.grupoId, req.user.empresaId]
+      );
+      if (gRows.length && (gRows[0].secoes || []).includes('verTodosLancamentos')) verTodos = true;
+    }
     let query, params;
-    if (req.user.role === 'admin') {
+    if (verTodos) {
         query = 'SELECT * FROM lancamentos WHERE "empresaId" = $1';
         params = [req.user.empresaId];
     } else {

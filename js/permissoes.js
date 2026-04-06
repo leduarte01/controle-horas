@@ -2,14 +2,15 @@
  * js/permissoes.js — Grupos de Permissão (admin only)
  */
 const SECOES_LABELS = {
-    dashboard:   'Dashboard',
-    lancamento:  'Lançar Horas',
-    relatorios:  'Relatórios',
-    clientes:    'Clientes',
-    projetos:    'Projetos',
-    atividades:  'Atividades',
-    kanban:      'Kanban',
-    equipe:      'Minha Equipe',
+    dashboard:             'Dashboard',
+    lancamento:            'Lançar Horas',
+    relatorios:            'Relatórios',
+    clientes:              'Clientes',
+    projetos:              'Projetos',
+    atividades:            'Atividades',
+    kanban:                'Kanban',
+    equipe:                'Minha Equipe',
+    verTodosLancamentos:   '👁 Ver todos os lançamentos',
 };
 
 Object.assign(ControleHoras.prototype, {

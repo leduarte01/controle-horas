@@ -72,7 +72,8 @@ Object.assign(ControleHoras.prototype, {
         document.getElementById('equipeUser').value = '';
         document.getElementById('equipeUser').disabled = false;
         document.getElementById('equipePass').value = '';
-        document.getElementById('equipeRole').value = 'membro';
+        const grupoEl = document.getElementById('equipeGrupo');
+        if (grupoEl) grupoEl.value = '';
     },
 
     editarMembroEquipe(id) {
@@ -87,9 +88,8 @@ Object.assign(ControleHoras.prototype, {
         document.getElementById('equipeId').value = u.id;
         document.getElementById('equipeNome').value = u.nome || '';
         document.getElementById('equipeUser').value = u.username;
-        document.getElementById('equipeUser').disabled = true; // username cannot be changed
-        document.getElementById('equipePass').value = ''; // left blank -> keep existing
-        document.getElementById('equipeRole').value = u.role || 'membro';
+        document.getElementById('equipeUser').disabled = true;
+        document.getElementById('equipePass').value = '';
         const grupoEl = document.getElementById('equipeGrupo');
         if (grupoEl) grupoEl.value = u.grupoId || '';
         
@@ -107,7 +107,7 @@ Object.assign(ControleHoras.prototype, {
             nome: document.getElementById('equipeNome').value,
             username: document.getElementById('equipeUser').value,
             password: document.getElementById('equipePass').value,
-            role: document.getElementById('equipeRole').value,
+            role: 'membro',
             grupoId: grupoEl ? (grupoEl.value || null) : null
         };
 

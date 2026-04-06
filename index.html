@@ -687,13 +687,6 @@
                                     <label class="form-label">Senha <span class="text-xs text-neutral-500">(Deixe em branco para não alterar, se editando)</span></label>
                                     <input type="password" class="form-control" id="equipePass">
                                 </div>
-                                <div class="mb-4">
-                                    <label class="form-label">Nível de Acesso</label>
-                                    <select class="form-control" id="equipeRole">
-                                        <option value="membro">Membro (Somente os próprios lançamentos)</option>
-                                        <option value="admin">Administrador (Vê todas as horas e membros)</option>
-                                    </select>
-                                </div>
                                 <div class="mb-6">
                                     <label class="form-label">Grupo de Permissão <span class="text-xs text-neutral-500">(define quais menus o membro acessa)</span></label>
                                     <select class="form-control" id="equipeGrupo">
@@ -777,6 +770,11 @@
                                     <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5">
                                         <input type="checkbox" class="cb-secao" value="equipe" style="accent-color:#f97316;width:16px;height:16px;">
                                         <span class="text-sm text-neutral-300"><i class="bi bi-person-badge mr-1 text-orange-400/70"></i>Minha Equipe</span>
+                                    </label>
+                                    <div style="border-top:1px solid rgba(255,255,255,0.07);margin:8px 0;"></div>
+                                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5">
+                                        <input type="checkbox" class="cb-secao" value="verTodosLancamentos" style="accent-color:#f97316;width:16px;height:16px;">
+                                        <span class="text-sm text-neutral-300"><i class="bi bi-eye mr-1 text-orange-400/70"></i>Ver todos os lançamentos <span class="text-xs text-neutral-500">(relatórios completos)</span></span>
                                     </label>
                                 </div>
                             </div>
