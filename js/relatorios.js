@@ -39,8 +39,68 @@ Object.assign(ControleHoras.prototype, {
         }).sort((a, b) => b.valorTotal - a.valorTotal);
     },
 
+    getClienteFilters() {
+        const cbTodos = document.getElementById('cbClienteTodos');
+        if (cbTodos && cbTodos.checked) return []; // Retorna vazio indicando que são "Todos"
+        
+        const listaCb = document.getElementById('filtroClienteLista');
+        if (!listaCb) return [];
+        return Array.from(listaCb.querySelectorAll('.cb-filtro-cliente:checked')).map(cb => cb.value);
+    },
+
+    onCbClienteTodosChange(checkbox) {
+        const listaCb = document.getElementById('filtroClienteLista');
+        if (listaCb) {
+            Array.from(listaCb.querySelectorAll('.cb-filtro-cliente')).forEach(cb => {
+                cb.checked = false; // "Todos" desmarca os individuais
+            });
+        }
+        this.atualizarTextoFiltroCliente();
+        this.atualizarFiltrosProjeto();
+    },
+
+    onCbClienteIndividualChange() {
+        const cbTodos = document.getElementById('cbClienteTodos');
+        const listaCb = document.getElementById('filtroClienteLista');
+        if (cbTodos && listaCb) {
+            const anyChecked = Array.from(listaCb.querySelectorAll('.cb-filtro-cliente')).some(cb => cb.checked);
+            if (anyChecked) {
+                cbTodos.checked = false;
+            } else {
+                cbTodos.checked = true; // Se desmarcar todos, volta para "Todos"
+            }
+        }
+        this.atualizarTextoFiltroCliente();
+        this.atualizarFiltrosProjeto();
+    },
+
+    atualizarTextoFiltroCliente() {
+        const cbTodos = document.getElementById('cbClienteTodos');
+        const triggerTexto = document.getElementById('filtroClienteTexto');
+        if (!triggerTexto) return;
+        
+        if (cbTodos && cbTodos.checked) {
+            triggerTexto.textContent = 'Todos os clientes';
+            return;
+        }
+        
+        const listaCb = document.getElementById('filtroClienteLista');
+        if (listaCb) {
+            const checkedBoxes = Array.from(listaCb.querySelectorAll('.cb-filtro-cliente:checked'));
+            if (checkedBoxes.length === 0) {
+                triggerTexto.textContent = 'Todos os clientes';
+                if (cbTodos) cbTodos.checked = true;
+            } else if (checkedBoxes.length === 1) {
+                const nome = checkedBoxes[0].nextElementSibling.textContent;
+                triggerTexto.textContent = nome;
+            } else {
+                triggerTexto.textContent = `${checkedBoxes.length} empresas selecionadas`;
+            }
+        }
+    },
+
     aplicarFiltros() {
-        const clienteId = document.getElementById('filtroCliente').value;
+        const clientesSelecionados = this.getClienteFilters();
         const projetoId = document.getElementById('filtroProjeto').value;
         const inicio    = document.getElementById('dataInicio').value;
         const fim       = document.getElementById('dataFim').value;
@@ -49,8 +109,8 @@ Object.assign(ControleHoras.prototype, {
 
         if (projetoId) {
             lista = lista.filter(l => l.projetoId === projetoId);
-        } else if (clienteId) {
-            const ids = this.projetos.filter(p => p.clienteId === clienteId).map(p => p.id);
+        } else if (clientesSelecionados.length > 0) {
+            const ids = this.projetos.filter(p => clientesSelecionados.includes(p.clienteId)).map(p => p.id);
             lista = lista.filter(l => ids.includes(l.projetoId));
         }
         if (inicio) lista = lista.filter(l => l.data >= inicio);

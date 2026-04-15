@@ -85,14 +85,12 @@ Object.assign(ControleHoras.prototype, {
     },
 
     atualizarSelectsClientes() {
-        const selects = ['clienteProjeto', 'filtroCliente', 'clienteLancamento'];
+        const selects = ['clienteProjeto', 'clienteLancamento'];
         selects.forEach(id => {
             const select = document.getElementById(id);
             if (!select) return;
             const current = select.value;
-            select.innerHTML = id === 'filtroCliente'
-                ? '<option value="">Todos os clientes</option>'
-                : id === 'clienteLancamento'
+            select.innerHTML = id === 'clienteLancamento'
                 ? '<option value="">Todos os clientes</option>'
                 : '<option value="">Selecione um cliente</option>';
             this.clientes.forEach(c => {
@@ -103,6 +101,39 @@ Object.assign(ControleHoras.prototype, {
             });
             if (current && this.clientes.some(c => c.id === current)) select.value = current;
         });
+
+        // Atualiza filtro customizado de Clientes (Multi-select)
+        const listaCb = document.getElementById('filtroClienteLista');
+        if (listaCb) {
+            const selectedBoxes = Array.from(listaCb.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+            
+            listaCb.innerHTML = '';
+            this.clientes.forEach(c => {
+                listaCb.innerHTML += `
+                    <label class="flex items-center gap-3 p-2 px-3 hover:bg-white/5 cursor-pointer transition-colors text-sm text-neutral-300">
+                        <input type="checkbox" value="${c.id}" class="cb-filtro-cliente accent-orange-500 w-4 h-4 cursor-pointer" onchange="controleHoras.onCbClienteIndividualChange()">
+                        <span>${c.nome}</span>
+                    </label>
+                `;
+            });
+            
+            const checkboxes = Array.from(listaCb.querySelectorAll('.cb-filtro-cliente'));
+            let anyRestored = false;
+            checkboxes.forEach(cb => {
+                if (selectedBoxes.includes(cb.value)) {
+                    cb.checked = true;
+                    anyRestored = true;
+                }
+            });
+            
+            if (!anyRestored && checkboxes.length > 0) {
+                const cbTodos = document.getElementById('cbClienteTodos');
+                if (cbTodos && cbTodos.checked) {
+                    // Mantém estado de 'Todos'
+                }
+            }
+            if(this.atualizarTextoFiltroCliente) this.atualizarTextoFiltroCliente();
+        }
     },
 
     atualizarSelectsProjetos() {
@@ -145,17 +176,20 @@ Object.assign(ControleHoras.prototype, {
     },
 
     atualizarFiltrosProjeto() {
-        const clienteId = document.getElementById('filtroCliente').value;
+        const clientesSelecionados = this.getClienteFilters ? this.getClienteFilters() : [];
         const select = document.getElementById('filtroProjeto');
+        if (!select) return;
         select.innerHTML = '<option value="">Todos os projetos</option>';
-        const lista = clienteId
-            ? this.projetos.filter(p => p.clienteId === clienteId)
-            : this.projetos;
+        
+        let lista = this.projetos;
+        if (clientesSelecionados.length > 0) {
+            lista = this.projetos.filter(p => clientesSelecionados.includes(p.clienteId));
+        }
             
-        // Atualiza as datas com o dia_fechamento do cliente selecionado (se houver)
+        // Atualiza as datas com o dia_fechamento do cliente selecionado (se houver exatamente 1 selecionado)
         let diaF = 17;
-        if (clienteId) {
-            const clienteAtual = this.clientes.find(c => c.id === clienteId);
+        if (clientesSelecionados.length === 1) {
+            const clienteAtual = this.clientes.find(c => c.id === clientesSelecionados[0]);
             if (clienteAtual) diaF = clienteAtual.diaFechamento || 17;
         }
         const periodo = this.calcularPeriodoVigente(diaF);
@@ -168,7 +202,8 @@ Object.assign(ControleHoras.prototype, {
             const cliente = this.clientes.find(c => c.id === p.clienteId);
             const opt = document.createElement('option');
             opt.value = p.id;
-            opt.textContent = clienteId ? p.nome : `${cliente ? cliente.nome : '—'} — ${p.nome}`;
+            // Se filtrou por exatamente 1 cliente, remove o nome do cliente do projeto para ficar mais enxuto
+            opt.textContent = (clientesSelecionados.length === 1) ? p.nome : `${cliente ? cliente.nome : '—'} — ${p.nome}`;
             select.appendChild(opt);
         });
     }

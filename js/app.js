@@ -89,8 +89,14 @@ class ControleHoras {
             this.onProjetoLancamentoChange('');
         });
 
-        document.getElementById('filtroCliente').addEventListener('change',
-            () => this.atualizarFiltrosProjeto());
+        // Fechar o dropdown customizado de clientes quando clicar fora
+        document.addEventListener('click', (e) => {
+            const trigger = document.getElementById('filtroClienteTrigger');
+            const dropdown = document.getElementById('filtroClienteDropdown');
+            if (trigger && dropdown && !trigger.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
     }
     calcularPeriodoVigente(diaFechamento) {
         let dia = parseInt(diaFechamento) || 17;
