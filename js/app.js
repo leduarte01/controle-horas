@@ -94,8 +94,7 @@ class ControleHoras {
             const trigger = document.getElementById('filtroClienteTrigger');
             const dropdown = document.getElementById('filtroClienteDropdown');
             if (trigger && dropdown && !trigger.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.classList.remove('open');
-                trigger.classList.remove('open');
+                dropdown.classList.add('hidden');
             }
         });
     }
