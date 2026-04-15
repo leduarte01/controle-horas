@@ -477,19 +477,18 @@
                 <div class="card-header"><i class="bi bi-funnel mr-2 text-orange-500/70"></i>Filtros</div>
                 <div class="p-5">
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <div class="relative">
-                            <label class="form-label" for="filtroClienteTrigger">Cliente</label>
-                            <div id="filtroClienteTrigger" class="form-control flex items-center justify-between cursor-pointer" onclick="document.getElementById('filtroClienteDropdown').classList.toggle('hidden')">
-                                <span id="filtroClienteTexto" class="truncate pr-2">Todos os clientes</span>
-                                <i class="bi bi-chevron-down text-neutral-400"></i>
+                        <div class="custom-select-wrapper relative">
+                            <label class="form-label">Cliente</label>
+                            <div id="filtroClienteTrigger" class="custom-select-trigger form-control" onclick="document.getElementById('filtroClienteDropdown').classList.toggle('open'); this.classList.toggle('open')">
+                                <span id="filtroClienteTexto" class="custom-select-value truncate">Todos os clientes</span>
+                                <svg class="custom-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg>
                             </div>
-                            <div id="filtroClienteDropdown" class="absolute mt-1 w-full z-50 glass-card hidden border border-white/10 max-h-64 overflow-y-auto shadow-2xl py-1">
-                                <label class="flex items-center gap-3 p-2 px-3 hover:bg-white/5 cursor-pointer transition-colors text-sm border-b border-white/5">
-                                    <input type="checkbox" id="cbClienteTodos" class="accent-orange-500 w-4 h-4 cursor-pointer" checked onchange="controleHoras.onCbClienteTodosChange(this)">
-                                    <span class="font-medium text-white">Todos os clientes</span>
-                                </label>
-                                <div id="filtroClienteLista" class="pt-1">
-                                    <!-- Checkboxes renderizados dinamicamente -->
+                            <div id="filtroClienteDropdown" class="custom-select-dropdown" style="position:absolute; width:100%; top:calc(100% + 4px); left:0; z-index:99999;">
+                                <div class="custom-select-option active" id="cbDivClienteTodos" onclick="controleHoras.onSelClienteTodosChange()">
+                                    Todos os clientes
+                                </div>
+                                <div id="filtroClienteLista">
+                                    <!-- Options renderizadas dinamicamente -->
                                 </div>
                             </div>
                         </div>

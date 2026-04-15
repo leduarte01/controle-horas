@@ -102,33 +102,35 @@ Object.assign(ControleHoras.prototype, {
             if (current && this.clientes.some(c => c.id === current)) select.value = current;
         });
 
-        // Atualiza filtro customizado de Clientes (Multi-select)
+        // Atualiza filtro customizado de Clientes (Multi-select padrão do sistema)
         const listaCb = document.getElementById('filtroClienteLista');
         if (listaCb) {
-            const selectedBoxes = Array.from(listaCb.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+            const selectedBoxes = Array.from(listaCb.querySelectorAll('.custom-select-option.active')).map(el => el.getAttribute('data-value'));
             
             listaCb.innerHTML = '';
             this.clientes.forEach(c => {
-                listaCb.innerHTML += `
-                    <label class="flex items-center gap-3 p-2 px-3 hover:bg-white/5 cursor-pointer transition-colors text-sm text-neutral-300">
-                        <input type="checkbox" value="${c.id}" class="cb-filtro-cliente accent-orange-500 w-4 h-4 cursor-pointer" onchange="controleHoras.onCbClienteIndividualChange()">
-                        <span>${c.nome}</span>
-                    </label>
-                `;
+                const div = document.createElement('div');
+                div.className = 'custom-select-option';
+                div.setAttribute('data-value', c.id);
+                div.textContent = c.nome;
+                div.onclick = () => {
+                    if (window.controleHoras) window.controleHoras.onSelClienteIndividualChange(div);
+                };
+                listaCb.appendChild(div);
             });
             
-            const checkboxes = Array.from(listaCb.querySelectorAll('.cb-filtro-cliente'));
+            const options = Array.from(listaCb.querySelectorAll('.custom-select-option'));
             let anyRestored = false;
-            checkboxes.forEach(cb => {
-                if (selectedBoxes.includes(cb.value)) {
-                    cb.checked = true;
+            options.forEach(opt => {
+                if (selectedBoxes.includes(opt.getAttribute('data-value'))) {
+                    opt.classList.add('active');
                     anyRestored = true;
                 }
             });
             
-            if (!anyRestored && checkboxes.length > 0) {
-                const cbTodos = document.getElementById('cbClienteTodos');
-                if (cbTodos && cbTodos.checked) {
+            if (!anyRestored && options.length > 0) {
+                const cbTodos = document.getElementById('cbDivClienteTodos');
+                if (cbTodos && cbTodos.classList.contains('active')) {
                     // Mantém estado de 'Todos'
                 }
             }

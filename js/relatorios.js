@@ -40,34 +40,39 @@ Object.assign(ControleHoras.prototype, {
     },
 
     getClienteFilters() {
-        const cbTodos = document.getElementById('cbClienteTodos');
-        if (cbTodos && cbTodos.checked) return []; // Retorna vazio indicando que são "Todos"
+        const cbTodos = document.getElementById('cbDivClienteTodos');
+        if (cbTodos && cbTodos.classList.contains('active')) return []; // Retorna vazio indicando que são "Todos"
         
         const listaCb = document.getElementById('filtroClienteLista');
         if (!listaCb) return [];
-        return Array.from(listaCb.querySelectorAll('.cb-filtro-cliente:checked')).map(cb => cb.value);
+        return Array.from(listaCb.querySelectorAll('.custom-select-option.active')).map(el => el.getAttribute('data-value'));
     },
 
-    onCbClienteTodosChange(checkbox) {
+    onSelClienteTodosChange() {
+        const cbTodos = document.getElementById('cbDivClienteTodos');
+        if (cbTodos) cbTodos.classList.add('active');
+        
         const listaCb = document.getElementById('filtroClienteLista');
         if (listaCb) {
-            Array.from(listaCb.querySelectorAll('.cb-filtro-cliente')).forEach(cb => {
-                cb.checked = false; // "Todos" desmarca os individuais
+            Array.from(listaCb.querySelectorAll('.custom-select-option')).forEach(opt => {
+                opt.classList.remove('active'); // "Todos" desmarca os individuais
             });
         }
         this.atualizarTextoFiltroCliente();
         this.atualizarFiltrosProjeto();
     },
 
-    onCbClienteIndividualChange() {
-        const cbTodos = document.getElementById('cbClienteTodos');
+    onSelClienteIndividualChange(element) {
+        element.classList.toggle('active');
+        
+        const cbTodos = document.getElementById('cbDivClienteTodos');
         const listaCb = document.getElementById('filtroClienteLista');
         if (cbTodos && listaCb) {
-            const anyChecked = Array.from(listaCb.querySelectorAll('.cb-filtro-cliente')).some(cb => cb.checked);
+            const anyChecked = Array.from(listaCb.querySelectorAll('.custom-select-option.active')).length > 0;
             if (anyChecked) {
-                cbTodos.checked = false;
+                cbTodos.classList.remove('active');
             } else {
-                cbTodos.checked = true; // Se desmarcar todos, volta para "Todos"
+                cbTodos.classList.add('active'); // Se desmarcar todos, volta para "Todos"
             }
         }
         this.atualizarTextoFiltroCliente();
@@ -75,24 +80,23 @@ Object.assign(ControleHoras.prototype, {
     },
 
     atualizarTextoFiltroCliente() {
-        const cbTodos = document.getElementById('cbClienteTodos');
+        const cbTodos = document.getElementById('cbDivClienteTodos');
         const triggerTexto = document.getElementById('filtroClienteTexto');
         if (!triggerTexto) return;
         
-        if (cbTodos && cbTodos.checked) {
+        if (cbTodos && cbTodos.classList.contains('active')) {
             triggerTexto.textContent = 'Todos os clientes';
             return;
         }
         
         const listaCb = document.getElementById('filtroClienteLista');
         if (listaCb) {
-            const checkedBoxes = Array.from(listaCb.querySelectorAll('.cb-filtro-cliente:checked'));
+            const checkedBoxes = Array.from(listaCb.querySelectorAll('.custom-select-option.active'));
             if (checkedBoxes.length === 0) {
                 triggerTexto.textContent = 'Todos os clientes';
-                if (cbTodos) cbTodos.checked = true;
+                if (cbTodos) cbTodos.classList.add('active');
             } else if (checkedBoxes.length === 1) {
-                const nome = checkedBoxes[0].nextElementSibling.textContent;
-                triggerTexto.textContent = nome;
+                triggerTexto.textContent = checkedBoxes[0].textContent;
             } else {
                 triggerTexto.textContent = `${checkedBoxes.length} empresas selecionadas`;
             }
