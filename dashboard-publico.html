@@ -819,7 +819,7 @@
 
         const ctx = document.getElementById('horasChart').getContext('2d');
         window.atividadeChartInstance = new Chart(ctx, {
-            type: 'pie',
+            type: 'doughnut',
             plugins: [ChartDataLabels],
             data: {
                 labels: Object.keys(horasPorAtiv),
@@ -836,6 +836,7 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                cutout: '65%',
                 layout: { padding: 4 },
                 plugins: {
                     legend: {
@@ -855,15 +856,19 @@
                         formatter: (value, ctx) => {
                             let sum = 0;
                             let dataArr = ctx.chart.data.datasets[0].data;
-                            dataArr.map(d => { sum += d; });
+                            dataArr.forEach(d => { sum += d; });
                             let percentage = (value * 100 / sum).toFixed(0) + "%";
                             return value.toFixed(1) + 'h\n(' + percentage + ')';
                         },
                         display: function(context) {
                             var dataset = context.dataset;
-                            var count = dataset.data.length;
                             var value = dataset.data[context.dataIndex];
-                            return value > 0; // Only display if greater than 0
+                            if (value === 0) return false;
+                            
+                            var sum = dataset.data.reduce((a, b) => a + b, 0);
+                            var percentage = (value * 100 / sum);
+                            // Só exibe a label se for > 7% para evitar sobreposição
+                            return percentage > 7;
                         },
                         textAlign: 'center'
                     }
