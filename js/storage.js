@@ -3,37 +3,10 @@
  */
 Object.assign(ControleHoras.prototype, {
 
-    async apiSync() {
-        if (!this.token) return;
-        try {
-            const resposta = await fetch(`${this.apiBaseUrl}/migrar`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify({
-                    clientes: this.clientes,
-                    projetos: this.projetos,
-                    lancamentos: this.lancamentos
-                })
-            });
-            if (resposta.status === 401) {
-                this.logout();
-                return;
-            }
-        } catch(e) {
-            console.error('Erro ao sincronizar com banco', e);
-        }
-    },
-
-    salvarDados() {
+    salvarCacheLocal() {
         localStorage.setItem('clientes',    JSON.stringify(this.clientes));
         localStorage.setItem('projetos',    JSON.stringify(this.projetos));
         localStorage.setItem('lancamentos', JSON.stringify(this.lancamentos));
-        
-        // Sincroniza via Upsert pro BD PostgeSQL secretamente
-        this.apiSync();
     },
 
     async carregarDadosAPI() {
@@ -60,7 +33,6 @@ Object.assign(ControleHoras.prototype, {
                 this.clientes = cLocal;
                 this.projetos = JSON.parse(localStorage.getItem('projetos')) || [];
                 this.lancamentos = JSON.parse(localStorage.getItem('lancamentos')) || [];
-                this.apiSync();
             }
 
         } catch(e) {

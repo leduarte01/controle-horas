@@ -3,7 +3,7 @@
  */
 Object.assign(ControleHoras.prototype, {
 
-    cadastrarProjeto() {
+    async cadastrarProjeto() {
         const clienteId  = document.getElementById('clienteProjeto').value;
         const nome       = document.getElementById('nomeProjeto').value.trim();
         const descricao  = document.getElementById('descricaoProjeto').value.trim();
@@ -13,24 +13,52 @@ Object.assign(ControleHoras.prototype, {
             this.mostrarToast('Selecione um cliente e informe o nome do projeto.', 'error'); return;
         }
 
+        let projetoAtualizado = null;
+
         if (this.editandoProjeto) {
             if (this.projetos.some(p => p.clienteId === clienteId && p.nome.toLowerCase() === nome.toLowerCase() && p.id !== this.editandoProjeto.id)) {
                 this.mostrarToast('Projeto com este nome já existe para o cliente.', 'error'); return;
             }
-            const idx = this.projetos.findIndex(p => p.id === this.editandoProjeto.id);
-            if (idx !== -1) {
-                this.projetos[idx] = { ...this.projetos[idx], clienteId, nome, descricao, valorHora, dataAtualizacao: new Date().toISOString() };
+            projetoAtualizado = { ...this.editandoProjeto, clienteId, nome, descricao, valorHora, dataAtualizacao: new Date().toISOString() };
+            
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/projetos/${this.editandoProjeto.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                    body: JSON.stringify(projetoAtualizado)
+                });
+                if (!res.ok) throw new Error('Erro ao atualizar projeto no servidor.');
+
+                const idx = this.projetos.findIndex(p => p.id === this.editandoProjeto.id);
+                if (idx !== -1) this.projetos[idx] = projetoAtualizado;
                 this.mostrarToast('Projeto atualizado com sucesso!', 'success');
+            } catch (err) {
+                this.mostrarToast(err.message, 'error');
+                return;
             }
         } else {
             if (this.projetos.some(p => p.clienteId === clienteId && p.nome.toLowerCase() === nome.toLowerCase())) {
                 this.mostrarToast('Projeto com este nome já existe para o cliente.', 'error'); return;
             }
-            this.projetos.push({ id: this.gerarId(), clienteId, nome, descricao, valorHora, dataCadastro: new Date().toISOString() });
-            this.mostrarToast('Projeto cadastrado com sucesso!', 'success');
+            projetoAtualizado = { id: this.gerarId(), clienteId, nome, descricao, valorHora, dataCadastro: new Date().toISOString() };
+            
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/projetos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                    body: JSON.stringify(projetoAtualizado)
+                });
+                if (!res.ok) throw new Error('Erro ao cadastrar projeto no servidor.');
+
+                this.projetos.push(projetoAtualizado);
+                this.mostrarToast('Projeto cadastrado com sucesso!', 'success');
+            } catch (err) {
+                this.mostrarToast(err.message, 'error');
+                return;
+            }
         }
 
-        this.salvarDados();
+        this.salvarCacheLocal();
         this.carregarProjetos();
         this.atualizarSelectsProjetos();
         this.limparFormProjeto();
@@ -102,14 +130,19 @@ Object.assign(ControleHoras.prototype, {
         });
         if (!ok) return;
         try {
-            await fetch(`${this.apiBaseUrl}/projetos/${id}`, {
+            const res = await fetch(`${this.apiBaseUrl}/projetos/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': 'Bearer ' + this.token }
             });
-        } catch(e) { console.error('Erro ao excluir projeto na API:', e); }
+            if (!res.ok) throw new Error('Erro ao excluir projeto no servidor');
+        } catch(e) { 
+            console.error('Erro ao excluir projeto na API:', e); 
+            this.mostrarToast('Erro ao excluir. Tente novamente.', 'error');
+            return;
+        }
         this.lancamentos = this.lancamentos.filter(l => l.projetoId !== id);
         this.projetos    = this.projetos.filter(p => p.id !== id);
-        this.salvarDados();
+        this.salvarCacheLocal();
         this.carregarDados();
         this.atualizarDashboard();
         this.mostrarToast('Projeto excluído com sucesso!', 'success');

@@ -3,7 +3,7 @@
  */
 Object.assign(ControleHoras.prototype, {
 
-    cadastrarCliente() {
+    async cadastrarCliente() {
         const nome     = document.getElementById('nomeCliente').value.trim();
         const email    = document.getElementById('emailCliente').value.trim();
         const telefone = document.getElementById('telefoneCliente').value.trim();
@@ -11,24 +11,52 @@ Object.assign(ControleHoras.prototype, {
 
         if (!nome) { this.mostrarToast('Informe o nome do cliente.', 'error'); return; }
 
+        let clienteAtualizado = null;
+
         if (this.editandoCliente) {
             if (this.clientes.some(c => c.nome.toLowerCase() === nome.toLowerCase() && c.id !== this.editandoCliente.id)) {
                 this.mostrarToast('Cliente com este nome já existe.', 'error'); return;
             }
-            const idx = this.clientes.findIndex(c => c.id === this.editandoCliente.id);
-            if (idx !== -1) {
-                this.clientes[idx] = { ...this.clientes[idx], nome, email, telefone, diaFechamento, dataAtualizacao: new Date().toISOString() };
+            clienteAtualizado = { ...this.editandoCliente, nome, email, telefone, diaFechamento, dataAtualizacao: new Date().toISOString() };
+            
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/clientes/${this.editandoCliente.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                    body: JSON.stringify(clienteAtualizado)
+                });
+                if (!res.ok) throw new Error('Erro ao atualizar cliente no servidor.');
+                
+                const idx = this.clientes.findIndex(c => c.id === this.editandoCliente.id);
+                if (idx !== -1) this.clientes[idx] = clienteAtualizado;
                 this.mostrarToast('Cliente atualizado com sucesso!', 'success');
+            } catch (err) {
+                this.mostrarToast(err.message, 'error');
+                return;
             }
         } else {
             if (this.clientes.some(c => c.nome.toLowerCase() === nome.toLowerCase())) {
                 this.mostrarToast('Cliente com este nome já existe.', 'error'); return;
             }
-            this.clientes.push({ id: this.gerarId(), nome, email, telefone, diaFechamento, dataCadastro: new Date().toISOString() });
-            this.mostrarToast('Cliente cadastrado com sucesso!', 'success');
+            clienteAtualizado = { id: this.gerarId(), nome, email, telefone, diaFechamento, dataCadastro: new Date().toISOString() };
+            
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/clientes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                    body: JSON.stringify(clienteAtualizado)
+                });
+                if (!res.ok) throw new Error('Erro ao cadastrar cliente no servidor.');
+                
+                this.clientes.push(clienteAtualizado);
+                this.mostrarToast('Cliente cadastrado com sucesso!', 'success');
+            } catch (err) {
+                this.mostrarToast(err.message, 'error');
+                return;
+            }
         }
 
-        this.salvarDados();
+        this.salvarCacheLocal();
         this.carregarClientes();
         this.atualizarSelectsClientes();
         this.limparFormCliente();
@@ -101,16 +129,21 @@ Object.assign(ControleHoras.prototype, {
         });
         if (!ok) return;
         try {
-            await fetch(`${this.apiBaseUrl}/clientes/${id}`, {
+            const res = await fetch(`${this.apiBaseUrl}/clientes/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': 'Bearer ' + this.token }
             });
-        } catch(e) { console.error('Erro ao excluir cliente na API:', e); }
+            if (!res.ok) throw new Error('Erro ao excluir cliente no servidor');
+        } catch(e) { 
+            console.error('Erro ao excluir cliente na API:', e); 
+            this.mostrarToast('Erro ao excluir. Tente novamente.', 'error');
+            return;
+        }
         const projetosDoCliente = this.projetos.filter(p => p.clienteId === id).map(p => p.id);
         this.lancamentos = this.lancamentos.filter(l => !projetosDoCliente.includes(l.projetoId));
         this.projetos    = this.projetos.filter(p => p.clienteId !== id);
         this.clientes    = this.clientes.filter(c => c.id !== id);
-        this.salvarDados();
+        this.salvarCacheLocal();
         this.carregarDados();
         this.atualizarDashboard();
         this.mostrarToast('Cliente excluído com sucesso!', 'success');

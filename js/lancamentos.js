@@ -30,7 +30,7 @@ Object.assign(ControleHoras.prototype, {
         }
     },
 
-    lancarHoras() {
+    async lancarHoras() {
         const projetoId  = document.getElementById('projetoLancamento').value;
         const datasStr   = document.getElementById('dataLancamento').value;
         const horaInicio = document.getElementById('horaInicio').value;
@@ -65,12 +65,15 @@ Object.assign(ControleHoras.prototype, {
         const projeto = this.projetos.find(p => p.id === projetoId);
         const valorTotal = duracao * (projeto ? projeto.valorHora : 0);
 
-        if (this.editandoLancamento) {
-            const idx = this.lancamentos.findIndex(l => l.id === this.editandoLancamento.id);
-            if (idx !== -1) {
-                this.lancamentos[idx] = {
-                    ...this.lancamentos[idx],
-                    projetoId, data, horaInicio, horaFim, // Quando edita, salva apenas na primeira data se múltiplas foram acidentalmente escolhidas
+        // Desabilita o botão enquanto salva
+        const btnSubmit = document.getElementById('btnSubmitLancamento');
+        if (btnSubmit) btnSubmit.disabled = true;
+
+        try {
+            if (this.editandoLancamento) {
+                const lancamentoAtualizado = {
+                    ...this.editandoLancamento,
+                    projetoId, data, horaInicio, horaFim, // Quando edita, salva apenas na primeira data
                     duracao:    parseFloat(duracao.toFixed(2)),
                     atividade,
                     atividadeId,
@@ -78,27 +81,54 @@ Object.assign(ControleHoras.prototype, {
                     valorTotal: parseFloat(valorTotal.toFixed(2)),
                     dataAtualizacao: new Date().toISOString()
                 };
-                this.mostrarToast(`Lançamento atualizado! Duração: ${duracao.toFixed(2)}h`, 'success');
-            }
-        } else {
-            datas.forEach(d => {
-                this.lancamentos.push({
-                    id: this.gerarId(),
-                    projetoId, data: d, horaInicio, horaFim,
-                    duracao:     parseFloat(duracao.toFixed(2)),
-                    atividade,
-                    atividadeId,
-                    descricao,
-                    valorTotal:  parseFloat(valorTotal.toFixed(2)),
-                    dataLancamento: new Date().toISOString()
-                });
-            });
-            this.mostrarToast(`${datas.length > 1 ? datas.length + ' lançamentos realizados' : 'Lançamento realizado'}! Duração total registrada: ${(duracao * datas.length).toFixed(2)}h`, 'success');
-        }
 
-        this.salvarDados();
-        this.limparFormLancamento();
-        this.atualizarDashboard();
+                const res = await fetch(`${this.apiBaseUrl}/lancamentos/${this.editandoLancamento.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                    body: JSON.stringify(lancamentoAtualizado)
+                });
+                if (!res.ok) throw new Error('Erro ao atualizar lançamento no servidor.');
+
+                const idx = this.lancamentos.findIndex(l => l.id === this.editandoLancamento.id);
+                if (idx !== -1) this.lancamentos[idx] = lancamentoAtualizado;
+                
+                this.mostrarToast(`Lançamento atualizado! Duração: ${duracao.toFixed(2)}h`, 'success');
+            } else {
+                const requests = datas.map(d => {
+                    const novoLancamento = {
+                        id: this.gerarId(),
+                        projetoId, data: d, horaInicio, horaFim,
+                        duracao:     parseFloat(duracao.toFixed(2)),
+                        atividade,
+                        atividadeId,
+                        descricao,
+                        valorTotal:  parseFloat(valorTotal.toFixed(2)),
+                        dataLancamento: new Date().toISOString()
+                    };
+                    return fetch(`${this.apiBaseUrl}/lancamentos`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                        body: JSON.stringify(novoLancamento)
+                    }).then(r => {
+                        if (!r.ok) throw new Error(`Falha no dia ${d}`);
+                        return novoLancamento;
+                    });
+                });
+
+                const lancamentosSalvos = await Promise.all(requests);
+                this.lancamentos.push(...lancamentosSalvos);
+                this.mostrarToast(`${datas.length > 1 ? datas.length + ' lançamentos realizados' : 'Lançamento realizado'}! Duração total registrada: ${(duracao * datas.length).toFixed(2)}h`, 'success');
+            }
+
+            this.salvarCacheLocal();
+            this.limparFormLancamento();
+            this.atualizarDashboard();
+        } catch (err) {
+            console.error(err);
+            this.mostrarToast(err.message, 'error');
+        } finally {
+            if (btnSubmit) btnSubmit.disabled = false;
+        }
     },
 
     calcularTempo() {
@@ -177,13 +207,18 @@ Object.assign(ControleHoras.prototype, {
         });
         if (!ok) return;
         try {
-            await fetch(`${this.apiBaseUrl}/lancamentos/${id}`, {
+            const res = await fetch(`${this.apiBaseUrl}/lancamentos/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': 'Bearer ' + this.token }
             });
-        } catch(e) { console.error('Erro ao excluir lançamento na API:', e); }
+            if (!res.ok) throw new Error('Erro ao excluir lançamento no servidor');
+        } catch(e) { 
+            console.error('Erro ao excluir lançamento na API:', e); 
+            this.mostrarToast('Erro ao excluir. Tente novamente.', 'error');
+            return;
+        }
         this.lancamentos = this.lancamentos.filter(l => l.id !== id);
-        this.salvarDados();
+        this.salvarCacheLocal();
         this.atualizarDashboard();
         // Refresh report view if visible
         if (this.dadosRelatorio) this.aplicarFiltros();
@@ -237,7 +272,7 @@ Object.assign(ControleHoras.prototype, {
         document.getElementById('replicarLancamentoId').value = '';
     },
 
-    confirmarReplicacao() {
+    async confirmarReplicacao() {
         const id = document.getElementById('replicarLancamentoId').value;
         const datasStr = document.getElementById('replicarDatas').value;
         
@@ -251,24 +286,38 @@ Object.assign(ControleHoras.prototype, {
         }
         
         const datas = datasStr.split(',').map(d => d.trim()).filter(d => d);
-        let criados = 0;
         
-        datas.forEach(data => {
-            this.lancamentos.push({
-                ...original,
-                id: this.gerarId(),
-                data: data,
-                dataLancamento: new Date().toISOString()
+        try {
+            const requests = datas.map(data => {
+                const novoLancamento = {
+                    ...original,
+                    id: this.gerarId(),
+                    data: data,
+                    dataLancamento: new Date().toISOString()
+                };
+                return fetch(`${this.apiBaseUrl}/lancamentos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                    body: JSON.stringify(novoLancamento)
+                }).then(r => {
+                    if (!r.ok) throw new Error(`Falha ao replicar no dia ${data}`);
+                    return novoLancamento;
+                });
             });
-            criados++;
-        });
-        
-        this.salvarDados();
-        this.atualizarDashboard();
-        if (this.dadosRelatorio) this.aplicarFiltros();
-        
-        this.fecharModalReplicarLancamento();
-        this.mostrarToast(`${criados} lançamento(s) replicado(s) com sucesso!`, 'success');
+
+            const lancamentosSalvos = await Promise.all(requests);
+            this.lancamentos.push(...lancamentosSalvos);
+            
+            this.salvarCacheLocal();
+            this.atualizarDashboard();
+            if (this.dadosRelatorio) this.aplicarFiltros();
+            
+            this.fecharModalReplicarLancamento();
+            this.mostrarToast(`${datas.length} lançamento(s) replicado(s) com sucesso!`, 'success');
+        } catch (err) {
+            console.error(err);
+            this.mostrarToast(err.message, 'error');
+        }
     }
 
 });
