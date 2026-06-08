@@ -180,8 +180,9 @@ Object.assign(ControleHoras.prototype, {
                                             <td style="font-size:0.8125rem;white-space:nowrap;">R$ ${l.valorTotal.toFixed(2)}</td>
                                             <td>
                                                 <div class="action-cell">
-                                                    <button class="btn-warning-sm" onclick="controleHoras.editarLancamento('${l.id}')"><i class="bi bi-pencil"></i></button>
-                                                    <button class="btn-danger-sm"  onclick="controleHoras.excluirLancamento('${l.id}')"><i class="bi bi-trash"></i></button>
+                                                    <button class="btn-info-sm" title="Replicar" onclick="controleHoras.abrirModalReplicarLancamento('${l.id}')"><i class="bi bi-files"></i></button>
+                                                    <button class="btn-warning-sm" title="Editar" onclick="controleHoras.editarLancamento('${l.id}')"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn-danger-sm" title="Excluir" onclick="controleHoras.excluirLancamento('${l.id}')"><i class="bi bi-trash"></i></button>
                                                 </div>
                                             </td>
                                         </tr>`).join('')}
